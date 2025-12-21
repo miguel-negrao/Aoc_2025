@@ -8,16 +8,16 @@
 
 {--
 part1
-time: 
-attempts:
+time: 18m
+attempts: 1
 used chatgpt: no
-notes: 
+notes: extremely easy...
 
 part2
 time:
 attempts:
 used chatgpt: no
-notes:
+notes: first (naive) attempt crashes program. Nice, I like these ones !
 
 --}
 
@@ -28,7 +28,7 @@ module AoC
     , part2
     ) where
 
-import Data.List (tails, subsequences, inits)
+import Data.List (tails, subsequences, inits, nub)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Void (Void)
@@ -37,6 +37,8 @@ import GHC.Natural (Natural)
 import Text.Megaparsec
 import Text.Megaparsec.Char (digitChar, char, newline)
 import Control.Error
+import Data.Set (Set)
+import qualified Data.Set as Set
 
 -- comonad stuff
 import Control.Comonad
@@ -50,17 +52,105 @@ import Data.Maybe (catMaybes, fromMaybe)
 import Control.Comonad.Env (EnvT(..), ask)
 import Control.Monad (guard)
 import Control.Comonad.Trans.Env (runEnvT)
+import qualified Data.Foldable as Set
+
+-- 3-5
+-- 10-14
+-- 16-20
+-- 12-18
+
+-- 1
+-- 5
+-- 8
+-- 11
+-- 17
+-- 32
 
 type Parser = Parsec Void Text
+type Interval = (Natural, Natural)
+type IngredientRanges = [Interval]
+type AvailableIngredients = [Natural]
+data Database = Database IngredientRanges AvailableIngredients deriving (Show, Eq, Read)
+type ParsedType = Database
 
-type ParsedType = Void
+pNatural :: Parser Natural
+pNatural = read <$> some digitChar
+
+pRanges :: Parser IngredientRanges
+pRanges = some $ do
+    a <- pNatural
+    char '-'
+    b <- pNatural
+    newline
+    return (a,b)
+
+pAvailable :: Parser AvailableIngredients
+pAvailable = some $ pNatural <* newline
 
 parser :: Parser ParsedType
-parser = undefined
+parser = do
+    ranges <- pRanges
+    newline
+    Database ranges <$> pAvailable
 
+tString = "3-5\n10-14\n16-20\n12-18\n\n1\n5\n8\n11\n17\n32\n"
+
+tDatabase = parse parser "input" tString
+
+-- >>> tDatabase
+-- Right (Database [(3,5),(10,14),(16,20),(12,18)] [1,5,8,11,17,32])
+
+isFresh :: IngredientRanges -> Natural -> Bool
+isFresh ranges x = 
+    let
+        f (a,b) = a <= x && x <= b
+    in any f ranges
+
+countPred :: (a -> Bool) -> [a] -> Int
+countPred f = length . filter id . fmap f
 
 part1 :: ParsedType -> Int
-part1 xs = undefined
+part1 (Database ranges available) = countPred (isFresh ranges) available 
+
+-- | blows up on the real input
+part2v1 :: ParsedType -> Int
+part2v1 (Database ranges _) = Set.length $ Set.unions $ fmap (\(a,b) ->  Set.fromList [a..b]) ranges
+
+-- | we assume 
+--  a < b and c < d
+intervalUnion :: Interval -> Interval -> [Interval]
+intervalUnion (a,b) (c,d)
+    | b < c = [(a,b), (c,d)]                --  [a,b] (c,d) 
+    | d < a = [(a,b), (c,d)]                --  (c,d) [a,b]
+    | a < c && d < b = [(a,b)]              --  [a (c,d) b]
+    | c < a && b < d = [(c,d)]              --  (c [a,b] d)
+    | a < c && c < b && b < d = [(a,d)]     --  [a (c, b] d)
+    | c < a && a < d && d < b = [(c,b)]     --  [c (a, d] b)
+    | a == c                  = [(a, max b d)]
+    | b == d                  = [(min a c, b)]
+    | otherwise = error (show ((a,b),(c,d)))
+        -- any missing ?
+
+intervalUnion' (a,b) (c,d) = trace ("intervalUnion " <> show (a,b) <> " " <> show (c,d) <> " = " <> show result) result where result = intervalUnion (a,b) (c,d)
+
+intervalUnions :: [Interval] -> [Interval]
+intervalUnions [] = []
+intervalUnions (x:xs) = nub $ foldl f [x] xs where
+    f intervals int = concatMap (intervalUnion int) intervals
+
+-- >>> intervalUnions [(1,3),(5,7),(10,12)]
+-- [(10,12),(5,7),(1,3)]
+
+-- >>> intervalUnions [(1,3),(5,7),(10,12), (0,20)]
+-- [(0,20)]
+
+-- >>> intervalUnions [(1,7),(5,7),(10,25), (0,20)]
+-- [(0,25),(0,20)]
+
+
+-- | idea calculte unions of intervals using the intervals and not the individual elements
+part2v2 :: ParsedType -> Int
+part2v2 = undefined
 
 part2 :: ParsedType -> Int
-part2 xs = undefined
+part2 = part2v2
