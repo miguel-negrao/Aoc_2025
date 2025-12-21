@@ -150,7 +150,11 @@ intervalUnions (x:xs) = nub $ foldl f [x] xs where
 
 -- | idea calculte unions of intervals using the intervals and not the individual elements
 part2v2 :: ParsedType -> Int
-part2v2 = undefined
+part2v2 (Database ranges _) = 
+    let
+        finalIntervals = intervalUnions ranges
+        f (a,b) = fromIntegral $ b - a + 1
+    in sum $ fmap f finalIntervals
 
 part2 :: ParsedType -> Int
 part2 = part2v2
