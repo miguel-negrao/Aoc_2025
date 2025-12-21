@@ -1,0 +1,3 @@
+packages: */*.cabal
+with-compiler: ghc-9.8.2
+allow-newer: list-zipper:*
