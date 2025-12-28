@@ -15,9 +15,9 @@ notes: extremely easy...
 
 part2
 time:
-attempts:
+attempts: 1
 used chatgpt: no
-notes: first (naive) attempt crashes program. Nice, I like these ones !
+notes: first (naive) attempt crashes program. Nice, I like these ones ! 
 
 --}
 
@@ -28,7 +28,7 @@ module AoC
     , part2
     ) where
 
-import Data.List (tails, subsequences, inits, nub, sort)
+import Data.List (tails, subsequences, inits, nub, sort, (\\))
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Void (Void)
@@ -102,7 +102,7 @@ tDatabase = parse parser "input" tString
 -- Right (Database [(3,5),(10,14),(16,20),(12,18)] [1,5,8,11,17,32])
 
 isFresh :: IngredientRanges -> Natural -> Bool
-isFresh ranges x = 
+isFresh ranges x =
     let
         f (a,b) = a <= x && x <= b
     in any f ranges
@@ -111,7 +111,7 @@ countPred :: (a -> Bool) -> [a] -> Int
 countPred f = length . filter id . fmap f
 
 part1 :: ParsedType -> Int
-part1 (Database ranges available) = countPred (isFresh ranges) available 
+part1 (Database ranges available) = countPred (isFresh ranges) available
 
 -- | blows up on the real input
 part2v1 :: ParsedType -> Int
@@ -138,23 +138,62 @@ intervalUnionsV1 [] = []
 intervalUnionsV1 (x:xs)= sort $ nub $ foldl f [x] xs where
     f intervals int = concatMap (intervalUnion int) intervals
 
--- doesn't unify the 
+-- doesn't work 
 intervalUnionsv2 :: IngredientRanges -> IngredientRanges
-intervalUnionsv2 xs =  
+intervalUnionsv2 xs =
     let
         pairs = filter (\x -> length x == 2) $ subsequences xs
         f [a,b] = intervalUnion a b
-    in sort $ nub $ concatMap f pairs 
-    
--- >>> 1 +1 
--- 2
+    in sort $ nub $ concatMap f pairs
+
+intervalUnionsV3 :: IngredientRanges -> IngredientRanges
+intervalUnionsV3 = foldl f [] where
+    f :: IngredientRanges -> Interval -> IngredientRanges
+    f xs (a1,b1)
+        | not $ null containing = trace ("do nothing "<> show xs <>" (a1,b1) = " <> show (a1,b1))xs
+        | null intersectingLeft && null intersectingRight = trace ("null intersectingLeft && null intersectingRight " <> show xs <> show (a1,b1))(a1,b1):xs
+        | otherwise = trace ("\nxs = " <> show xs <> " (a1,b1) = " <> show (a1,b1) <> " (a3,b3) = " <> show (a3,b3)<>" intersectingLeft: "<> show intersectingLeft <> "intersectingRight: " <> show intersectingRight <> " withoutInters: " <> show withoutInters<>"\n") (a3,b3):withoutInters
+        where
+            containing = filter (\(a2, b2) -> a2 <= a1 && b1 <= b2) xs
+            withoutContained = filter (\(a2,b2) -> not (a1 <= a2 && b2 <= b1)) xs 
+            intersectingLeft = filter (\(a2,b2) -> a2 < a1 && a1 < b2 && b2 <= b1) withoutContained
+            intersectingRight = filter (\(a2,b2) -> a1 <= a2 && a2 < b1 && b1 < b2) withoutContained
+            withoutInters = (withoutContained \\ intersectingLeft) \\ intersectingRight
+            a3 = case intersectingLeft of
+                [] -> a1
+                xs -> minimum $ fmap fst xs
+            b3 = case intersectingRight of
+                [] -> b1
+                xs -> maximum $ fmap snd xs
+            
+
+-- >>> intervalUnionsV3 [(3,5),(10,14),(16,20),(12,18)]
+-- [(10,20),(3,5)]
+
+-- | idea calculte unions of intervals using the intervals and not the individual elements
+part2v2 :: ParsedType -> Int
+part2v2 (Database ranges _) =
+    let
+        finalIntervals :: IngredientRanges
+        finalIntervals = intervalUnionsV3 ranges
+        f (a,b) = fromIntegral $ b - a + 1
+    in sum $ fmap f finalIntervals
+
+part2 :: ParsedType -> Int
+part2 = part2v2
 
 
--- >>> take 4 $ iterate intervalUnions [(3,5),(10,14),(16,20),(12,18)]
--- [[(3,5),(10,14),(16,20),(12,18)],[(3,5),(10,14),(10,18),(12,18),(12,20),(16,20)],[(3,5),(10,14),(10,18),(10,20),(12,18),(12,20),(16,20)],[(3,5),(10,14),(10,18),(10,20),(12,18),(12,20),(16,20)]]
 
--- >>> intervalUnions [(10,18), (10,20)]
--- [(10,20)]
+
+
+
+
+
+
+
+
+
+
 
 untilStable :: Eq a => Int -> (a -> a) -> a -> a
 untilStable 0 _ _ = error "untilStable: reached max iterations"
@@ -162,17 +201,4 @@ untilStable n f a
     | fa == a = a
     | otherwise = untilStable (n-1) f a
     where
-        fa = f a 
-
-
--- | idea calculte unions of intervals using the intervals and not the individual elements
-part2v2 :: ParsedType -> Int
-part2v2 (Database ranges _) = 
-    let
-        finalIntervals :: IngredientRanges
-        finalIntervals = untilStable 1000 intervalUnionsv2 ranges
-        f (a,b) = fromIntegral $ b - a + 1
-    in sum $ fmap f finalIntervals
-
-part2 :: ParsedType -> Int
-part2 = part2v2
+        fa = f a
