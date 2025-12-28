@@ -1,8 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleContexts #-}
 
 {--
@@ -23,8 +21,8 @@ notes:
 --}
 
 module Aoc4
-    ( 
-    
+    (
+
       part1
     , part2
     , TableStore
@@ -108,48 +106,61 @@ loop f = iterate (extend f . tab (Memo.pair Memo.integral Memo.integral))
 -- f outside the board I can return Nothing
 -- initial table is a Map of positions to values.
 
-type TableElementType = Bool
+data TachionManifoldEntity = EmptySpace | Ray | Splitter | StartPosition deriving (Eq, Show, Read)
+
+type TableElementType = TachionManifoldEntity
 type Width = Int
 type Height = Int
 
 -- x is column increases from left to right
 -- y is row increses up to down
 type Position = (Int,Int)
-type Table = Map Position TableElementType
+type Table a = Map Position a
 
 -- | The EnvT comonad is used to keep the original width and height
 --   The element type is Bool, this way elements outside the original grid are considered to not have a paper roll because False is returned by peek. 
-type TableStore = EnvT (Width,Height) (Store Position) TableElementType
+type TableStore a = EnvT (Width,Height) (Store Position) a
 
-listToTable :: [[TableElementType]] -> Table
-listToTable xs =
-    let
-        numRows = length xs
-        numCols = length $ head xs
-    in Map.fromList $ concat $ imap (\j line -> imap (\i e -> ((i,j), e)) line) xs
-
-tableToTableStore :: Width -> Height -> Table -> TableStore
-tableToTableStore w h xs =
-    let
-        f (i,j) = fromMaybe False $ Map.lookup (i,j) xs
-    in EnvT (w,h) $ store f (0,0)
-
-listToStore :: [[TableElementType]] -> TableStore
-listToStore xs = tableToTableStore w h $ listToTable xs where
-    w = length $ head xs
+tableDimensions :: [[a]] -> (Int,Int)
+tableDimensions xs = (w,h) where
+    w = case xs of
+        [] -> error "A table list cannot be empty has to have at least an empty list inside it"
+        (x:_) -> length x
     h = length xs
 
-storeToCoordList :: TableStore -> [((Int,Int), TableElementType)]
+listToTable :: [[a]] -> Table a
+listToTable xs = Map.fromList $ concat $ imap (\j line -> imap (\i e -> ((i,j), e)) line) xs
+
+listToStore :: [[TachionManifoldEntity]] -> TableStore TachionManifoldEntity
+listToStore xs = tableToTableStore w h $ listToTable xs where
+    (w,h) = tableDimensions xs
+
+up :: Position
+up = (0,-1)
+
+down :: Position
+down = (0,1)
+
+left :: Position
+left = (-1,0)
+
+right :: Position
+right = (1,0)
+
+sumPair :: (Num a, Num b) => (a, b) -> (a, b) -> (a, b)
+sumPair (a,b) (c,d) = (a+c,b+d)
+
+storeToCoordList :: TableStore a -> [((Int,Int), a)]
 storeToCoordList s = do
     let (w,h) = ask s
     i <- [0..(w-1)]
     j <- [0..(h-1)]
     return ((i,j), peek (i,j) s)
 
-storeToTable :: TableStore -> Table
+storeToTable :: TableStore a -> Table a
 storeToTable s = Map.fromList $ storeToCoordList s
 
-storeToList :: TableStore -> [[TableElementType]]
+storeToList :: TableStore a -> [[a]]
 storeToList s = do
     let (w, h) = ask s
     j <- [0..(h-1)]
@@ -157,21 +168,16 @@ storeToList s = do
         i <- [0..(w-1)]
         return $ peek (i,j) s
 
-listToString :: [[TableElementType]] -> String
-listToString xs = unlines $ fmap (fmap (\x -> if x then '@' else '.')) xs
 
-storeToString :: TableStore -> String
-storeToString = listToString . storeToList
-
-memoizeTableStore :: TableStore -> TableStore
+memoizeTableStore :: TableStore a -> TableStore a
 memoizeTableStore s =
     let (e,s') = runEnvT s
     in EnvT e (tab (Memo.pair Memo.integral Memo.integral) s')
 
-loopTableStore :: (TableStore -> Bool) -> TableStore -> [TableStore]
+loopTableStore :: (TableStore a -> a) -> TableStore a -> [TableStore a]
 loopTableStore f = iterate (memoizeTableStore . extend f . memoizeTableStore)
 
-findStableState :: Int -> (TableStore -> Bool) -> TableStore -> Maybe TableStore
+findStableState :: Eq a => Int -> (TableStore a -> a) -> TableStore a -> Maybe (TableStore a)
 findStableState maxInterations f s
     | maxInterations <= 1 = Nothing
     | otherwise =  let
@@ -180,7 +186,7 @@ findStableState maxInterations f s
             zs = filter (\(a,b) -> storeToList a == storeToList b) ys
         in fst <$> headMay zs
 
-findStableStateError :: Int -> (TableStore -> Bool) -> TableStore -> TableStore
+findStableStateError :: Eq a => Int -> (TableStore a -> a) -> TableStore a -> TableStore a
 findStableStateError maxInterations f s =
     let
         x = findStableState maxInterations f s
@@ -188,27 +194,64 @@ findStableStateError maxInterations f s =
         Just x -> x
         Nothing -> error $ "findStableStateError would not stop after " <> show maxInterations <> " interations"
 
-test1String = "..@@.@@@@.\n@@@.@.@.@@\n@@@@@.@.@@\n@.@@@@..@.\n@@.@@@@.@@\n.@@@@@@@.@\n.@.@.@.@@@\n@.@@@.@@@@\n.@@@@@@@@.\n@.@.@@@.@.\n"
+genTestString = do
+    s <- readFile "test_input"
+    putStrLn $  "tString = " <> show s
 
+tString :: String
+tString = ".......S.......\n...............\n.......^.......\n...............\n......^.^......\n...............\n.....^.^.^.....\n...............\n....^.^...^....\n...............\n...^.^...^.^...\n...............\n..^...^.....^..\n...............\n.^.^.^.^.^...^.\n...............\n"
 
-sumPair :: (Num a, Num b) => (a, b) -> (a, b) -> (a, b)
-sumPair (a,b) (c,d) = (a+c,b+d)
+-- These functions are specific to the type of Table
 
-checkPaperNeighbours :: TableStore -> Bool
-checkPaperNeighbours s =
+stringToList :: String -> [[TachionManifoldEntity]]
+stringToList = fmap (fmap f) . lines where
+    f '|' = Ray
+    f '^' = Splitter
+    f '.' = EmptySpace
+    f c = error $ "string can only have | ^ and spaces. found : " <> show c
+
+listToString :: [[TableElementType]] -> String
+listToString xs = unlines $ fmap (fmap f) xs where
+    f EmptySpace = '.'
+    f Ray = '|'
+    f Splitter = '^'
+    f StartPosition = 'S'
+
+storeToString :: TableStore TachionManifoldEntity -> String
+storeToString = listToString . storeToList
+
+tableToTableStore :: Width -> Height -> Table TachionManifoldEntity -> TableStore TachionManifoldEntity
+tableToTableStore w h xs =
     let
-        nei = do
-            dx <- [-1, 0, 1]
-            dy <- [-1, 0, 1]
-            guard $ (dx, dy) /= (0,0)
-            return (dx, dy)
-        adjacentSpaces = fmap (\p -> peeks (sumPair p) s) nei
-        adjacentRolls = filter id adjacentSpaces
-        hasRollAtFocus = extract s
-        result = hasRollAtFocus && length adjacentRolls < 4
-        traceString = show (pos s) <> ": " <> (if hasRollAtFocus then show result <> " " <> show (zip (sumPair (pos s) <$> nei) adjacentSpaces) else "No roll" )
-    --in trace traceString result 
-    in result
+        f (i,j) = fromMaybe EmptySpace $ Map.lookup (i,j) xs
+    in EnvT (w,h) $ store f (0,0)
+
+
+-- >>> storeToString $ listToStore $ stringToList tString
+-- string can only have | ^ and spaces. found : 'S'
+
+-- Couldn't match expected type `String' with actual type `Any'
+-- In the first argument of `stringToList', namely `tString'
+-- In the second argument of `($)', namely `stringToList tString'
+-- In the second argument of `($)', namely
+--   `listToStore $ stringToList tString'
+
+-- rule :: TableStore -> Char
+-- rule s =
+--     let
+--         up = peeks (sumPair (0,-1))
+--         nei = do
+--             dx <- [-1, 0, 1]
+--             dy <- [-1, 0, 1]
+--             guard $ (dx, dy) /= (0,0)
+--             return (dx, dy)
+--         adjacentSpaces = fmap (\p -> peeks (sumPair p) s) nei
+--         adjacentRolls = filter id adjacentSpaces
+--         hasRollAtFocus = extract s
+--         result = hasRollAtFocus && length adjacentRolls < 4
+--         traceString = show (pos s) <> ": " <> (if hasRollAtFocus then show result <> " " <> show (zip (sumPair (pos s) <$> nei) adjacentSpaces) else "No roll" )
+--     --in trace traceString result 
+--     in result
 
 -- part1 :: String -> Int
 -- part1 xs =
@@ -222,22 +265,6 @@ checkPaperNeighbours s =
 
 part1 :: String -> Int
 part1 xs = undefined
-
-removeRolls :: TableStore -> Bool
-removeRolls s =
-    let
-        nei = do
-            dx <- [-1, 0, 1]
-            dy <- [-1, 0, 1]
-            guard $ (dx, dy) /= (0,0)
-            return (dx, dy)
-        adjacentSpaces = fmap (\p -> peeks (sumPair p) s) nei
-        adjacentRolls = filter id adjacentSpaces
-        hasRollAtFocus = extract s
-        result = hasRollAtFocus && length adjacentRolls >= 4
-        traceString = show (pos s) <> ": " <> (if hasRollAtFocus then show result <> " " <> show (zip (sumPair (pos s) <$> nei) adjacentSpaces) else "No roll" )
-    -- in trace traceString result 
-    in result
 
 part2 :: String -> Int
 part2 xs = undefined
