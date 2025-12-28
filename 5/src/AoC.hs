@@ -151,7 +151,6 @@ intervalUnionsV3 = foldl f [] where
     f :: IngredientRanges -> Interval -> IngredientRanges
     f xs (a1,b1)
         | not $ null containing = trace ("do nothing "<> show xs <>" (a1,b1) = " <> show (a1,b1))xs
-        | null intersectingLeft && null intersectingRight = trace ("null intersectingLeft && null intersectingRight " <> show xs <> show (a1,b1))(a1,b1):xs
         | otherwise = trace ("\nxs = " <> show xs <> " (a1,b1) = " <> show (a1,b1) <> " (a3,b3) = " <> show (a3,b3)<>" intersectingLeft: "<> show intersectingLeft <> "intersectingRight: " <> show intersectingRight <> " withoutInters: " <> show withoutInters<>"\n") (a3,b3):withoutInters
         where
             containing = filter (\(a2, b2) -> a2 <= a1 && b1 <= b2) xs
