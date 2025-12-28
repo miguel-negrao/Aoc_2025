@@ -15,9 +15,9 @@ notes: extremely easy...
 
 part2
 time:
-attempts: 1
-used chatgpt: to generate a prop for intervalUnionsV3 (which passed).
-notes: first (naive) attempt crashes program. Nice, I like these ones ! 
+attempts: 2
+used chatgpt: to generate tests for intervalUnionsV3
+notes: first (naive) attempt crashes program. Nice, I like these ones ! It took 3 attempts until getting the right approach. Still at that point the code seemed to be more or less correct and the answer was not correct. At that point I asked codex (openai) to add some propety tests for the function. Those still didn't catch the problem. Then I asked it to add corner-case tests when the intervals have a limit in common, and bingo that was it.
 
 --}
 
@@ -115,16 +115,18 @@ part1 :: ParsedType -> Int
 part1 (Database ranges available) = countPred (isFresh ranges) available
 
 intervalUnionsV3 :: IngredientRanges -> IngredientRanges
-intervalUnionsV3 = foldl f [] where
+intervalUnionsV3 = sort . foldl f [] where
     f :: IngredientRanges -> Interval -> IngredientRanges
     f xs (a1,b1)
-        | not $ null containing = trace ("do nothing "<> show xs <>" (a1,b1) = " <> show (a1,b1))xs
-        | otherwise = trace ("\nxs = " <> show xs <> " (a1,b1) = " <> show (a1,b1) <> " (a3,b3) = " <> show (a3,b3)<>" intersectingLeft: "<> show intersectingLeft <> "intersectingRight: " <> show intersectingRight <> " withoutInters: " <> show withoutInters<>"\n") (a3,b3):withoutInters
+        | not $ null containing = xs
+            -- trace ("do nothing "<> show xs <>" (a1,b1) = " <> show (a1,b1))xs
+        | otherwise = (a3,b3):withoutInters
+            --trace ("\nxs = " <> show xs <> " (a1,b1) = " <> show (a1,b1) <> " (a3,b3) = " <> show (a3,b3)<>" intersectingLeft: "<> show intersectingLeft <> "intersectingRight: " <> show intersectingRight <> " withoutInters: " <> show withoutInters<>"\n") (a3,b3):withoutInters
         where
             containing = filter (\(a2, b2) -> a2 <= a1 && b1 <= b2) xs
             withoutContained = filter (\(a2,b2) -> not (a1 <= a2 && b2 <= b1)) xs 
-            intersectingLeft = filter (\(a2,b2) -> a2 < a1 && a1 < b2 && b2 <= b1) withoutContained
-            intersectingRight = filter (\(a2,b2) -> a1 <= a2 && a2 < b1 && b1 < b2) withoutContained
+            intersectingLeft = filter (\(a2,b2) -> a2 < a1 && a1 <= b2 && b2 < b1) withoutContained
+            intersectingRight = filter (\(a2,b2) -> a1 < a2 && a2 <= b1 && b1 < b2) withoutContained
             withoutInters = (withoutContained \\ intersectingLeft) \\ intersectingRight
             a3 = case intersectingLeft of
                 [] -> a1

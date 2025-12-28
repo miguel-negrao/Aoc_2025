@@ -44,6 +44,7 @@ test-suite test
                        tasty-hunit,
                        tasty-quickcheck,
                        QuickCheck,
+                       containers,
                        aoc
   default-language:    Haskell2010
 
