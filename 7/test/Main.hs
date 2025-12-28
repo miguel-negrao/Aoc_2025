@@ -53,7 +53,7 @@ main = defaultMain $ testGroup "Aoc4"
                 let p = pos s
                 in unsafePerformIO (modifyIORef' ref (+ bump p)) `seq` not (extract s)
             s0 = EnvT (2,2) (store (const False) (0,0))
-            states = tail (take 3 (loopTableStore toggle s0))
+            states = drop 1 (take 3 (loopTableStore toggle s0))
             coords = [(0,0), (1,1)]
         mapM_ (\st -> do
             before <- readIORef ref

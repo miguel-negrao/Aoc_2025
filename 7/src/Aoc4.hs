@@ -10,7 +10,8 @@ notes:
 part1
 time: 
 attempts: 
-used chatgpt: 
+used chatgpt: yes, to add memoization test and then change slightly the memoization function: "Updated loopTableStore to memoize both the input and output stores by adding a memoizeTableStore helper and composing it before and after extend. This change ensures each state’s lookup function is cached (so repeated peeks don’t re-run the evolution rule) and also keeps repeated lookups inside the rule cheap by memoizing the prior state."
+
 notes: After reading my initial idea is to use comonads with tables. The evolution rules are if this cell is | put a | below, except if below is ^ put on |^|. Stop when state doesn't change on the whole board. At the end count the number ^ with | above. The question is going to be if my memoization scheme is really working and is good enough for the size of the table.
 
 part2
@@ -175,7 +176,7 @@ findStableState maxInterations f s
     | maxInterations <= 1 = Nothing
     | otherwise =  let
             xs = take maxInterations $ loopTableStore f s
-            ys = zip xs (tail xs)
+            ys = zip xs (drop 1 xs)
             zs = filter (\(a,b) -> storeToList a == storeToList b) ys
         in fst <$> headMay zs
 
