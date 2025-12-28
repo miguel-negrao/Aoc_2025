@@ -42,6 +42,8 @@ test-suite test
                        megaparsec,
                        tasty,
                        tasty-hunit,
+                       tasty-quickcheck,
+                       QuickCheck,
                        aoc
   default-language:    Haskell2010
 

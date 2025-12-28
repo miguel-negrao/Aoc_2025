@@ -1,11 +1,35 @@
 module Main (main) where
 
-import AoC (parser, part1, part2)
+import AoC (intervalUnionsV3, parser, part1, part2)
 import Data.Either (isRight)
 import qualified Data.Text.IO as TIO
 import Test.Tasty (defaultMain, testGroup)
 import Test.Tasty.HUnit (assertBool, assertEqual, assertFailure, testCase)
+import Test.Tasty.QuickCheck (testProperty)
 import Text.Megaparsec (parse)
+import Test.QuickCheck (Gen, Property, chooseInteger, counterexample, forAll, listOf)
+import Numeric.Natural (Natural)
+
+genInterval :: Gen (Natural, Natural)
+genInterval = do
+    a <- chooseInteger (0, 100000)
+    b <- chooseInteger (a, a + 100000)
+    pure (fromInteger a, fromInteger b)
+
+genRanges :: Gen [(Natural, Natural)]
+genRanges = listOf genInterval
+
+prop_intervalUnionsV3_nonOverlapping :: Property
+prop_intervalUnionsV3_nonOverlapping =
+    forAll genRanges $ \ranges ->
+        let
+            merged = intervalUnionsV3 ranges
+            maxEnd = maximum (0 : fmap snd merged)
+        in forAll (chooseInteger (0, toInteger maxEnd + 1)) $ \n ->
+            let
+                nNat = fromInteger n
+                count = length [() | (a,b) <- merged, a <= nNat && nNat <= b]
+            in counterexample ("merged=" <> show merged <> " n=" <> show nNat) (count <= 1)
 
 main :: IO ()
 main = defaultMain $ testGroup "AoC5"
@@ -25,4 +49,5 @@ main = defaultMain $ testGroup "AoC5"
         case parse parser "test_input" input of
             Left err -> assertFailure (show err)
             Right parsed -> assertEqual "part2" 14 (part2 parsed)
+    , testProperty "intervalUnionsV3 produces non-overlapping intervals" prop_intervalUnionsV3_nonOverlapping
     ]
