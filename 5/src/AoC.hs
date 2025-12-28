@@ -4,6 +4,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE BangPatterns #-}
 {- HLINT ignore "Unused LANGUAGE pragma" -}
 
 {--
@@ -19,6 +20,15 @@ attempts: 2
 used chatgpt: to generate tests for intervalUnionsV3
 notes: first (naive) attempt crashes program. Nice, I like these ones ! It took 3 attempts until getting the right approach. Still at that point the code seemed to be more or less correct and the answer was not correct. At that point I asked codex (openai) to add some propety tests for the function. Those still didn't catch the problem. Then I asked it to add corner-case tests when the intervals have a limit in common, and bingo that was it.
 
+Benchmark bench: RUNNING...
+All
+  part1: OK
+    719  μs ±  32 μs
+  part2: OK
+    464  μs ±  46 μs
+
+All 2 tests passed (0.91s)
+Benchmark bench: FINISH
 --}
 
 module AoC
@@ -29,7 +39,7 @@ module AoC
     , intervalUnionsV3
     ) where
 
-import Data.List (tails, subsequences, inits, nub, sort, (\\))
+import Data.List (tails, subsequences, inits, nub, sort, (\\), foldl')
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Void (Void)
