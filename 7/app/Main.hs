@@ -1,6 +1,6 @@
 module Main (main) where
 
-import Aoc4 (part1, part2)
+import AoC (part1, part2)
 import qualified Data.Text.IO as TIO
 import Text.Megaparsec (errorBundlePretty, parse)
 

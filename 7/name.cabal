@@ -15,7 +15,7 @@ extra-source-files:  ChangeLog.md
 cabal-version:       >=1.10
 
 library
-  exposed-modules:    Aoc4
+  exposed-modules:    AoC
   hs-source-dirs:     src
   build-depends:       base >=4.9 && < 4.21,
                        text, comonad, errors, megaparsec, pretty-simple, parallel, containers, data-memocombinators, lens

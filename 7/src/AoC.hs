@@ -6,11 +6,11 @@
 {--
 notes:
 part1
-time: 
-attempts: 
-used chatgpt: yes, to add memoization test and then change slightly the memoization function: "Updated loopTableStore to memoize both the input and output stores by adding a memoizeTableStore helper and composing it before and after extend. This change ensures each state’s lookup function is cached (so repeated peeks don’t re-run the evolution rule) and also keeps repeated lookups inside the rule cheap by memoizing the prior state."
+time: 1h15m
+attempts: 1
+used chatgpt: yes, to add a memoization test and then change slightly the memoization function: "Updated loopTableStore to memoize both the input and output stores by adding a memoizeTableStore helper and composing it before and after extend. This change ensures each state’s lookup function is cached (so repeated peeks don’t re-run the evolution rule) and also keeps repeated lookups inside the rule cheap by memoizing the prior state."
 
-notes: After reading my initial idea is to use comonads with tables. The evolution rules are if this cell is | put a | below, except if below is ^ put on |^|. Stop when state doesn't change on the whole board. At the end count the number ^ with | above. The question is going to be if my memoization scheme is really working and is good enough for the size of the table.
+notes: After reading my initial idea is to use comonads with tables. The evolution rules are if this cell is | put a | below, except if below is ^ put on |^|. Stop when state doesn't change on the whole board. At the end count the number ^ with | above. The question is going to be if my memoization scheme is really working and is good enough for the size of the table. 35s seems a bit too long, for such as small table.
 
 part2
 time: 
@@ -18,9 +18,16 @@ attempts:
 used chatgpt: 
 notes: 
 
+Benchmark bench: RUNNING...
+All
+  part1: OK
+    35.431 s ± 182 ms
+
+All 1 tests passed (106.30s)
+
 --}
 
-module Aoc4
+module AoC
     (
 
       part1
@@ -106,9 +113,7 @@ loop f = iterate (extend f . tab (Memo.pair Memo.integral Memo.integral))
 -- f outside the board I can return Nothing
 -- initial table is a Map of positions to values.
 
-data TachionManifoldEntity = EmptySpace | Ray | Splitter | StartPosition deriving (Eq, Show, Read)
 
-type TableElementType = TachionManifoldEntity
 type Width = Int
 type Height = Int
 
@@ -168,7 +173,6 @@ storeToList s = do
         i <- [0..(w-1)]
         return $ peek (i,j) s
 
-
 memoizeTableStore :: TableStore a -> TableStore a
 memoizeTableStore s =
     let (e,s') = runEnvT s
@@ -194,6 +198,9 @@ findStableStateError maxInterations f s =
         Just x -> x
         Nothing -> error $ "findStableStateError would not stop after " <> show maxInterations <> " interations"
 
+countTrue :: TableStore Bool -> Int
+countTrue = length . concatMap (filter id) . storeToList
+
 genTestString = do
     s <- readFile "test_input"
     putStrLn $  "tString = " <> show s
@@ -202,15 +209,17 @@ tString :: String
 tString = ".......S.......\n...............\n.......^.......\n...............\n......^.^......\n...............\n.....^.^.^.....\n...............\n....^.^...^....\n...............\n...^.^...^.^...\n...............\n..^...^.....^..\n...............\n.^.^.^.^.^...^.\n...............\n"
 
 -- These functions are specific to the type of Table
+data TachionManifoldEntity = EmptySpace | Ray | Splitter | StartPosition deriving (Eq, Show, Read)
 
 stringToList :: String -> [[TachionManifoldEntity]]
 stringToList = fmap (fmap f) . lines where
     f '|' = Ray
     f '^' = Splitter
     f '.' = EmptySpace
+    f 'S' = StartPosition
     f c = error $ "string can only have | ^ and spaces. found : " <> show c
 
-listToString :: [[TableElementType]] -> String
+listToString :: [[TachionManifoldEntity]] -> String
 listToString xs = unlines $ fmap (fmap f) xs where
     f EmptySpace = '.'
     f Ray = '|'
@@ -227,44 +236,36 @@ tableToTableStore w h xs =
     in EnvT (w,h) $ store f (0,0)
 
 
--- >>> storeToString $ listToStore $ stringToList tString
--- string can only have | ^ and spaces. found : 'S'
+-- >>> storeToString (listToStore $ stringToList tString) == tString
+-- True
 
--- Couldn't match expected type `String' with actual type `Any'
--- In the first argument of `stringToList', namely `tString'
--- In the second argument of `($)', namely `stringToList tString'
--- In the second argument of `($)', namely
---   `listToStore $ stringToList tString'
+rule :: TableStore TachionManifoldEntity -> TachionManifoldEntity
+rule s =
+    let
+        current = extract s
+        peek' p = peeks (sumPair p) s
+    in case current of
+        EmptySpace -> if
+            (peek' up `elem` [Ray, StartPosition]) ||
+            (peek' left == Splitter && peek' (-1,-1) == Ray) ||
+            (peek' right == Splitter && peek' (1,-1) == Ray) then Ray else EmptySpace
+        _ -> current
 
--- rule :: TableStore -> Char
--- rule s =
---     let
---         up = peeks (sumPair (0,-1))
---         nei = do
---             dx <- [-1, 0, 1]
---             dy <- [-1, 0, 1]
---             guard $ (dx, dy) /= (0,0)
---             return (dx, dy)
---         adjacentSpaces = fmap (\p -> peeks (sumPair p) s) nei
---         adjacentRolls = filter id adjacentSpaces
---         hasRollAtFocus = extract s
---         result = hasRollAtFocus && length adjacentRolls < 4
---         traceString = show (pos s) <> ": " <> (if hasRollAtFocus then show result <> " " <> show (zip (sumPair (pos s) <$> nei) adjacentSpaces) else "No roll" )
---     --in trace traceString result 
---     in result
-
--- part1 :: String -> Int
--- part1 xs =
---     let
---         st = listToStore xs
---         st' = extend checkPaperNeighbours st
---         countRolls = length . concatMap (filter id) . storeToList
---         result = countRolls st'
---     -- in trace ("\n" <> storeToString st') result
---     in result
+countSplits :: TableStore TachionManifoldEntity -> Bool
+countSplits s =
+    let
+        current = extract s
+        peek' p = peeks (sumPair p) s
+    in case current of
+        Splitter -> peek' up == Ray
+        _ -> False
 
 part1 :: String -> Int
-part1 xs = undefined
+part1 xs =
+            let
+                initial = listToStore $ stringToList xs
+                final = findStableStateError 300 rule initial
+            in countTrue $ extend countSplits final
 
 part2 :: String -> Int
 part2 xs = undefined

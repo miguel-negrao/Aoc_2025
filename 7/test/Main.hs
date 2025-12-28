@@ -1,6 +1,6 @@
 module Main (main) where
 
-import Aoc4 (TableStore, loopTableStore, part1, part2, slowLoop)
+import AoC (TableStore, loopTableStore, part1, part2, slowLoop)
 import Control.Comonad (extract)
 import Control.Comonad.Env (EnvT(..))
 import Control.Comonad.Store (peek, pos, store)
@@ -11,7 +11,7 @@ import Test.Tasty (defaultMain, testGroup)
 import Test.Tasty.HUnit (assertBool, assertEqual, testCase)
 
 main :: IO ()
-main = defaultMain $ testGroup "Aoc4"
+main = defaultMain $ testGroup "AoC"
     [
     -- testCase "parser parses test_input" $ do
     --     input <- TIO.readFile "test_input"
@@ -19,8 +19,9 @@ main = defaultMain $ testGroup "Aoc4"
     -- , testCase "parser parses input" $ do
     --     input <- TIO.readFile "input"
     --     assertBool "expected parse to succeed" (isRight (parse parser "input" input))
-    testCase "part1 example (skipped: part1 is undefined)" $ do
-        pure ()
+      testCase "part1 example" $ do
+        input <- readFile "test_input"
+        assertEqual "part1" 21 (part1 input)
     , testCase "loopTableStore memoizes per coordinate" $ do
         ref <- newIORef (0 :: Int)
         let f pos = unsafePerformIO $ do
