@@ -42,6 +42,7 @@ test-suite test
                        megaparsec,
                        tasty,
                        tasty-hunit,
+                       comonad,
                        NAME
   default-language:    Haskell2010
 

@@ -7,11 +7,8 @@ import Text.Megaparsec (errorBundlePretty, parse)
 
 main :: IO ()
 main = do
-    input <- TIO.readFile "input"
-    case parse parser "input" input of
-        Left err -> putStrLn (errorBundlePretty err)
-        Right parsed ->
-            defaultMain
-                [ bench "part1" $ nf part1 parsed
-                , bench "part2" $ nf part2 parsed
-                ]
+    input <- readFile "input"
+    defaultMain
+        [ bench "part1" $ nf part1 input
+        --, bench "part2" $ nf part2 input
+        ]   

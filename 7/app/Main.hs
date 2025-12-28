@@ -6,9 +6,11 @@ import Text.Megaparsec (errorBundlePretty, parse)
 
 main :: IO ()
 main = do
-    input <- TIO.readFile "input"
-    case parse parser "input" input of
-        Right parsed -> do
-            putStrLn $ "part1: " <> show (part1 parsed) <> "\n"
-            putStrLn $ "part2: " <> show (part2 parsed) <> "\n"
-        Left e -> putStrLn (errorBundlePretty e)
+    input <- readFile "input"
+    putStrLn $ "part1: " <> show (part1 input) <> "\n"
+    -- putStrLn $ "part2: " <> show (part2 parsed) <> "\n"
+    -- case parse parser "input" input of
+    --     Right parsed -> do
+    --         putStrLn $ "part1: " <> show (part1 parsed) <> "\n"
+    --         putStrLn $ "part2: " <> show (part2 parsed) <> "\n"
+    --     Left e -> putStrLn (errorBundlePretty e)
