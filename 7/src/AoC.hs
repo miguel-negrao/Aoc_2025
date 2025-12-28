@@ -8,15 +8,16 @@ notes:
 part1
 time: 1h15m
 attempts: 1
-used chatgpt: yes, to add a memoization test and then change slightly the memoization function: "Updated loopTableStore to memoize both the input and output stores by adding a memoizeTableStore helper and composing it before and after extend. This change ensures each state’s lookup function is cached (so repeated peeks don’t re-run the evolution rule) and also keeps repeated lookups inside the rule cheap by memoizing the prior state."
+used chatgpt: yes, to add a memoization test and then change slightly the memoization function: "Updated loopTableStore to memoize both the input and output stores by adding a memoizeTableStore helper and composing it before and after extend. This change ensures each state’s lookup function is cached (so repeated peeks don’t re-run the evolution rule) and also keeps repeated lookups inside the rule cheap by memoizing the prior state." 
+Also used it to try to understand why my solution is so slow.
 
-notes: After reading my initial idea is to use comonads with tables. The evolution rules are if this cell is | put a | below, except if below is ^ put on |^|. Stop when state doesn't change on the whole board. At the end count the number ^ with | above. The question is going to be if my memoization scheme is really working and is good enough for the size of the table. 35s seems a bit too long, for such as small table.
+notes: After reading my initial idea is to use comonads with tables. The evolution rules are if this cell is | put a | below, except if below is ^ put on |^|. Stop when state doesn't change on the whole board. At the end count the number ^ with | above. The question is going to be if my memoization scheme is really working and is good enough for the size of the table. 35s seems a bit too long, it's a pity as hte code is really elegant.
 
 part2
 time: 
 attempts: 
 used chatgpt: 
-notes: 
+notes: initial thoughts: if part1 takes 30s part 2 cannot be done with comonads... perhaps create a graph and go away from the table, then check all possible ways to walk the graph from a start point to an end point.
 
 Benchmark bench: RUNNING...
 All
