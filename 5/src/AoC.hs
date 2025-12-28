@@ -28,7 +28,7 @@ module AoC
     , part2
     ) where
 
-import Data.List (tails, subsequences, inits, nub)
+import Data.List (tails, subsequences, inits, nub, sort)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Void (Void)
@@ -53,6 +53,7 @@ import Control.Comonad.Env (EnvT(..), ask)
 import Control.Monad (guard)
 import Control.Comonad.Trans.Env (runEnvT)
 import qualified Data.Foldable as Set
+import Data.Function (fix)
 
 -- 3-5
 -- 10-14
@@ -133,26 +134,43 @@ intervalUnion (a,b) (c,d)
 
 intervalUnion' (a,b) (c,d) = trace ("intervalUnion " <> show (a,b) <> " " <> show (c,d) <> " = " <> show result) result where result = intervalUnion (a,b) (c,d)
 
-intervalUnions :: [Interval] -> [Interval]
-intervalUnions [] = []
-intervalUnions (x:xs) = nub $ foldl f [x] xs where
+intervalUnionsV1 [] = []
+intervalUnionsV1 (x:xs)= sort $ nub $ foldl f [x] xs where
     f intervals int = concatMap (intervalUnion int) intervals
 
--- >>> intervalUnions [(1,3),(5,7),(10,12)]
--- [(10,12),(5,7),(1,3)]
+-- doesn't unify the 
+intervalUnionsv2 :: IngredientRanges -> IngredientRanges
+intervalUnionsv2 xs =  
+    let
+        pairs = filter (\x -> length x == 2) $ subsequences xs
+        f [a,b] = intervalUnion a b
+    in sort $ nub $ concatMap f pairs 
+    
+-- >>> 1 +1 
+-- 2
 
--- >>> intervalUnions [(1,3),(5,7),(10,12), (0,20)]
--- [(0,20)]
 
--- >>> intervalUnions [(1,7),(5,7),(10,25), (0,20)]
--- [(0,25),(0,20)]
+-- >>> take 4 $ iterate intervalUnions [(3,5),(10,14),(16,20),(12,18)]
+-- [[(3,5),(10,14),(16,20),(12,18)],[(3,5),(10,14),(10,18),(12,18),(12,20),(16,20)],[(3,5),(10,14),(10,18),(10,20),(12,18),(12,20),(16,20)],[(3,5),(10,14),(10,18),(10,20),(12,18),(12,20),(16,20)]]
+
+-- >>> intervalUnions [(10,18), (10,20)]
+-- [(10,20)]
+
+untilStable :: Eq a => Int -> (a -> a) -> a -> a
+untilStable 0 _ _ = error "untilStable: reached max iterations"
+untilStable n f a
+    | fa == a = a
+    | otherwise = untilStable (n-1) f a
+    where
+        fa = f a 
 
 
 -- | idea calculte unions of intervals using the intervals and not the individual elements
 part2v2 :: ParsedType -> Int
 part2v2 (Database ranges _) = 
     let
-        finalIntervals = intervalUnions ranges
+        finalIntervals :: IngredientRanges
+        finalIntervals = untilStable 1000 intervalUnionsv2 ranges
         f (a,b) = fromIntegral $ b - a + 1
     in sum $ fmap f finalIntervals
 
