@@ -13,5 +13,5 @@ main = do
         Right parsed ->
             defaultMain
                 [ bench "part1" $ nf part1 parsed
-                , bench "part2" $ nf part2 input parsed
+                , bench "part2" $ nf (part2 input) parsed
                 ]

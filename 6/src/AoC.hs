@@ -20,6 +20,13 @@ attempts: 1
 used chatgpt: no
 notes: not hard, just had to be careful with transpose
 
+All
+  part1: OK
+    89.7 μs ± 4.7 μs
+  part2: OK
+    3.60 ms ± 175 μs
+
+All 2 tests passed (2.70s)
 --}
 
 module AoC
