@@ -3,3 +3,6 @@ dates.txt
 aoc.txt
 input
 test_input
+.cabal
+.state
+.cache
