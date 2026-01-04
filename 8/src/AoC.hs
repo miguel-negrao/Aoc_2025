@@ -129,9 +129,8 @@ t2 = take 10 $ sortOn snd $ fmap (\(x:y:[]) -> ((x,y),distance x y) )$ choose 2 
 
 -- the two junction boxes which are closest together are 162,817,812 and 425,690,689.
 
--- >>> head $ getPairsOrderedByDistance $ tParsed
--- (V3 162.0 817.0 812.0,V3 425.0 690.0 689.0)
 
+-- >>> choose 2 [1..6]
 
 
 -- |
@@ -175,10 +174,37 @@ Now, the two junction boxes which are closest together but aren't already direct
 
 The next two junction boxes to connect are 906,360,560 and 805,96,715. After connecting them, there is a circuit containing 3 junction boxes, a circuit containing 2 junction boxes, and 15 circuits which contain one junction box each.
 
+[3,2,2]
+
 The next two junction boxes are 431,825,988 and 425,690,689. Because these two junction boxes were already in the same circuit, nothing happens!
 --}
 
--- >>> OnePerLine $ part1Groups 10 tParsed
+test1 = take 10 $ getPairsOrderedByDistance $ tParsed
+
+-- >>> OnePerLine $ test1
+-- (V3 162.0 817.0 812.0,V3 425.0 690.0 689.0)
+-- (V3 162.0 817.0 812.0,V3 431.0 825.0 988.0)
+-- (V3 906.0 360.0 560.0,V3 805.0 96.0 715.0)
+-- (V3 431.0 825.0 988.0,V3 425.0 690.0 689.0)
+-- (V3 862.0 61.0 35.0,V3 984.0 92.0 344.0)
+-- (V3 52.0 470.0 668.0,V3 117.0 168.0 530.0)
+-- (V3 819.0 987.0 18.0,V3 941.0 993.0 340.0)
+-- (V3 906.0 360.0 560.0,V3 739.0 650.0 466.0)
+-- (V3 346.0 949.0 466.0,V3 425.0 690.0 689.0)
+-- (V3 906.0 360.0 560.0,V3 984.0 92.0 344.0)
+
+-- >>> length tParsed
+-- 20
+
+-- >>> length $ getPairsOrderedByDistance tParsed
+-- 190
+
+-- >>>  length $ nub $ concatMap (\(a,b) -> [a,b] )$ take 10 $ getPairsOrderedByDistance $ tParsed
+-- 13
+
+test2 = part1Groups 10 tParsed
+
+-- >>> OnePerLine test2
 -- fromList [V3 162.0 817.0 812.0,V3 346.0 949.0 466.0,V3 425.0 690.0 689.0,V3 431.0 825.0 988.0]
 -- fromList [V3 739.0 650.0 466.0,V3 805.0 96.0 715.0,V3 906.0 360.0 560.0,V3 984.0 92.0 344.0]
 -- fromList [V3 862.0 61.0 35.0,V3 984.0 92.0 344.0]
@@ -186,8 +212,8 @@ The next two junction boxes are 431,825,988 and 425,690,689. Because these two j
 -- fromList [V3 819.0 987.0 18.0,V3 941.0 993.0 340.0]
 
 -- After making the ten shortest connections, there are 11 circuits: one circuit which contains 5 junction boxes, one circuit which contains 4 junction boxes, two circuits which contain 2 junction boxes each, and seven circuits which each contain a single junction box.
--- >>> fmap length $ part1Groups 10 tParsed
--- [4,4,2,2,2]
+-- >>> fmap length $ part1Groups 1000 tParsed
+-- [20,6,3,5,3,2]
 
 part1' :: Int -> ParsedType -> Int
 part1' n xs = product (length <$> part1Groups n xs) 
