@@ -19,9 +19,12 @@ main = defaultMain $ testGroup "AoC"
     -- , testCase "parser parses input" $ do
     --     input <- TIO.readFile "input"
     --     assertBool "expected parse to succeed" (isRight (parse parser "input" input))
-      testCase "part1 example" $ do
+    testCase "part1 example" $ do
         input <- readFile "test_input"
         assertEqual "part1" 21 (part1 input)
+    , testCase "part2 example" $ do
+        input <- readFile "test_input"
+        assertEqual "part2" 40 (part2 input)
     , testCase "loopTableStore memoizes per coordinate" $ do
         ref <- newIORef (0 :: Int)
         let f pos = unsafePerformIO $ do
@@ -65,9 +68,4 @@ main = defaultMain $ testGroup "AoC"
             assertBool "expected new evaluations on first scan" (mid > before)
             assertEqual "expected no extra evals on re-scan" mid after
             pure ()) states
-    -- , testCase "part2 example" $ do
-    --     input <- TIO.readFile "test_input"
-    --     case parse parser "test_input" input of
-    --         Left err -> assertFailure (show err)
-    --         Right parsed -> assertEqual "part2" 43 (part2 parsed)
     ]

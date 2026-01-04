@@ -8,7 +8,7 @@ main :: IO ()
 main = do
     input <- readFile "input"
     putStrLn $ "part1: " <> show (part1 input) <> "\n"
-    -- putStrLn $ "part2: " <> show (part2 parsed) <> "\n"
+    --putStrLn $ "part2: " <> show (part2 input) <> "\n"
     -- case parse parser "input" input of
     --     Right parsed -> do
     --         putStrLn $ "part1: " <> show (part1 parsed) <> "\n"

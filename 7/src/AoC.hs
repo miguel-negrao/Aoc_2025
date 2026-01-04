@@ -11,13 +11,19 @@ attempts: 1
 used chatgpt: yes, to add a memoization test and then change slightly the memoization function: "Updated loopTableStore to memoize both the input and output stores by adding a memoizeTableStore helper and composing it before and after extend. This change ensures each state’s lookup function is cached (so repeated peeks don’t re-run the evolution rule) and also keeps repeated lookups inside the rule cheap by memoizing the prior state." 
 Also used it to try to understand why my solution is so slow.
 
-notes: After reading my initial idea is to use comonads with tables. The evolution rules are if this cell is | put a | below, except if below is ^ put on |^|. Stop when state doesn't change on the whole board. At the end count the number ^ with | above. The question is going to be if my memoization scheme is really working and is good enough for the size of the table. Done but takes 35s seems a bit too long, it's a pity as hte code is really elegant. Optimizing a bit goes to 12s. It appears there are solutions with ~0.0005 s.
+notes:
+
+After reading my initial idea is to use comonads with tables. The evolution rules are if this cell is | put a | below, except if below is ^ put on |^|. Stop when state doesn't change on the whole board. At the end count the number ^ with | above. The question is going to be if my memoization scheme is really working and is good enough for the size of the table.
+    
+Done but takes 35s seems a bit too long, it's a pity as the code is really elegant. Optimizing a bit goes to 12s. It appears there are solutions with ~0.0005 s.
+    
+Looking at this as graph problem, the splitters where the ray is split are the vertices, together with the start position and then end positions of the rays when they leave the chamber. The question is how many vertices are there if we exclude the start and end positions.
 
 part2
 time: 
 attempts: 
 used chatgpt: 
-notes: initial thoughts: if part1 takes 30s part 2 cannot be done with comonads... perhaps create a graph and go away from the table, then check all possible ways to walk the graph from a start point to an end point.
+notes: initial thoughts: if part1 takes 30s part 2 cannot be done with comonads... perhaps create a graph and go away from the table, then check all possible ways to walk the graph from a start point to an end point. 
 
 Benchmark bench: RUNNING...
 All
@@ -49,13 +55,15 @@ import Text.Megaparsec
 import Text.Megaparsec.Char (digitChar, char, newline)
 import Control.Error
 
--- comonad stuff
+import Data.Map (Map)
+import qualified Data.Map as Map
+import Data.Set (Set)
+import qualified Data.Set as Set
+
 import Control.Comonad
 import Control.Comonad.Store
 import qualified Data.MemoCombinators as Memo
 import Data.MemoCombinators (Memo)
-import Data.Map (Map)
-import qualified Data.Map as Map
 import Control.Lens
 import Data.Maybe (catMaybes, fromMaybe)
 import Control.Comonad.Env (EnvT(..), ask, runEnvT)
@@ -374,27 +382,65 @@ part1V2 xs =
                 final = head $ drop (h - 1) $ loopTableStore2 rule2 initial
             in countTrue2 $ extend countSplits2 final
 
-down3 (a,b) = (a,b+1)
-downLeft3 (a,b) = (a-1, b+1)
-downRight3 (a,b) = (a+1,b+1)
+downFrom (a,b) = (a,b+1)
+downLeftFrom (a,b) = (a-1, b+1)
+downRightFrom (a,b) = (a+1,b+1)
 
 part1V3' :: Position -> Table TachionManifoldEntity -> [Position]
-part1V3' start t = let d = down3 start in case Map.lookup d t of
+part1V3' start t = let d = downFrom start in case Map.lookup d t of
     Nothing -> []
-    Just Splitter -> [d] ++ part1V3' (downLeft3 start) t ++ part1V3' (downRight3 start) t
+    Just Splitter -> d:part1V3' (downLeftFrom start) t ++ part1V3' (downRightFrom start) t
     Just _ -> part1V3' d t
 
--- | 56s
+-- | too long...
 part1V3 :: String -> Int
 part1V3 xs =
             let
                 table = listToTable $ stringToList xs
                 start = fromMaybe (error "no S") $ elemIndex 'S' xs
-            in  length $ nub $ part1V3' (trace (show start) start,0) table
+                positions = part1V3' (start,0) table
+            in  length $ nub positions
+
+-- |
+-- This is based on the classic DFS algorithm for graphs as adjacency lists in Haskell as explained by ChatGPT.
+part1V4' :: Position -> Table TachionManifoldEntity -> [Position]
+part1V4' start t =
+    let
+        go seen [] = []
+        go seen (x:xs) = case Map.lookup x t of
+            Nothing -> go seen xs
+            Just Splitter ->  
+                if x `elem` seen then go seen xs else x : go (Set.insert x seen) ([downLeftFrom start, downRightFrom start] ++ xs)
+            Just _ -> go seen (downFrom x:xs)
+    in go Set.empty [start]
+
+
+part1V4 :: String -> Int
+part1V4 xs =
+            let
+                table = listToTable $ stringToList xs
+                start = fromMaybe (error "no S") $ elemIndex 'S' xs
+                positions = part1V4' (start,0) table
+            in  length positions
 
 
 part1 :: String -> Int
-part1 = part1V2
+part1 = part1V3
+
+
+part2' :: Position -> Table TachionManifoldEntity -> Int
+part2' start t = let d = downFrom start in case Map.lookup d t of
+    Nothing -> 1
+    Just Splitter -> part2' (downLeftFrom start) t + part2' (downRightFrom start) t
+    Just _ -> part2' d t
+
+-- | too long...
+part2V1 :: String -> Int
+part2V1 xs =
+            let
+                table = listToTable $ stringToList xs
+                start = fromMaybe (error "no S") $ elemIndex 'S' xs
+            in  part2' (start,0) table
 
 part2 :: String -> Int
-part2 xs = undefined
+part2 = part2V1
