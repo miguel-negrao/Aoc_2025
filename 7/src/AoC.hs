@@ -21,17 +21,18 @@ Looking at this as graph problem, the splitters where the ray is split are the v
 
 part2
 time: 
-attempts: 
-used chatgpt: 
-notes: initial thoughts: if part1 takes 30s part 2 cannot be done with comonads... perhaps create a graph and go away from the table, then check all possible ways to walk the graph from a start point to an end point. 
+attempts: 1
+used chatgpt: yes, to debug why my solution was so slow.
+notes: initial thoughts: if part1 takes 30s part 2 cannot be done with comonads... perhaps create a graph and go away from the table, then check all possible ways to walk the graph from a start point to an end point. My initial solutions were too slow, I had to get some help from chatgpt which suggested Bytestring and memoization. Since I was already using memocombinators I used that, it was a good chance to learn that library.
 
 Benchmark bench: RUNNING...
 All
-  part1: OK
-    35.431 s ± 182 ms
+  part2: OK
+    8.42 ms ± 649 μs
+  part2: OK
+    8.89 ms ± 190 μs
 
-All 1 tests passed (106.30s)
-
+All 2 tests passed (2.92s)
 --}
 
 module AoC
@@ -70,6 +71,9 @@ import Control.Comonad.Env (EnvT(..), ask, runEnvT)
 import Control.Monad (guard)
 import GHC.IO.Encoding (BufferCodec(encode))
 import Data.Bits (Bits(xor))
+
+import qualified Data.ByteString.Char8 as B
+
 
 -- COMONAD  STUFF
 
@@ -385,12 +389,20 @@ part1V2 xs =
 downFrom (a,b) = (a,b+1)
 downLeftFrom (a,b) = (a-1, b+1)
 downRightFrom (a,b) = (a+1,b+1)
+leftFrom (a,b) = (a-1,b)
+rightFrom (a,b) = (a+1,b)
 
 part1V3' :: Position -> Table TachionManifoldEntity -> [Position]
-part1V3' start t = let d = downFrom start in case Map.lookup d t of
-    Nothing -> []
-    Just Splitter -> d:part1V3' (downLeftFrom start) t ++ part1V3' (downRightFrom start) t
-    Just _ -> part1V3' d t
+part1V3' start t =
+    let
+        d = downFrom start
+        elementDown = {-# SCC "part1V3_lookup" #-} Map.lookup d t
+    in  case elementDown of
+        Nothing -> []
+        Just Splitter ->
+            {-# SCC "part1V3_split" #-} d : part1V3' (downLeftFrom start) t
+                                         ++ part1V3' (downRightFrom start) t
+        Just _ -> {-# SCC "part1V3_recur" #-} part1V3' d t
 
 -- | too long...
 part1V3 :: String -> Int
@@ -410,7 +422,7 @@ part1V4' start t =
         go seen [] = []
         go seen (x:xs) = case Map.lookup x t of
             Nothing -> go seen xs
-            Just Splitter ->  
+            Just Splitter ->
                 if x `elem` seen then go seen xs else x : go (Set.insert x seen) ([downLeftFrom start, downRightFrom start] ++ xs)
             Just _ -> go seen (downFrom x:xs)
     in go Set.empty [start]
@@ -426,14 +438,16 @@ part1V4 xs =
 
 
 part1 :: String -> Int
-part1 = part1V3
+part1 = part1V2
 
 
-part2' :: Position -> Table TachionManifoldEntity -> Int
-part2' start t = let d = downFrom start in case Map.lookup d t of
-    Nothing -> 1
-    Just Splitter -> part2' (downLeftFrom start) t + part2' (downRightFrom start) t
-    Just _ -> part2' d t
+part2V1' :: Position -> Table TachionManifoldEntity -> Int
+part2V1' pos table = go pos where
+        go = Memo.pair Memo.integral Memo.integral go'
+        go' start = case Map.lookup pos table of
+            Nothing -> 1
+            Just Splitter -> go (leftFrom pos) + go (rightFrom pos)
+            Just _ -> go (downFrom pos)
 
 -- | too long...
 part2V1 :: String -> Int
@@ -441,7 +455,29 @@ part2V1 xs =
             let
                 table = listToTable $ stringToList xs
                 start = fromMaybe (error "no S") $ elemIndex 'S' xs
-            in  part2' (start,0) table
+            in  part2V1' (start,0) table
 
-part2 :: String -> Int
-part2 = part2V1
+part2V2' :: Int -> Int -> Int -> B.ByteString -> Int
+part2V2' start lineWidth l xs = go start where
+    go = Memo.integral go'
+    go' start
+        | start >= l = 1 -- trace ("exit: " <> show (start `mod` lineWidth)) 1
+        | currentValue == '^' = go (left start) + go (right start)
+        | otherwise = go (down start)
+        where
+            down x = x + lineWidth
+            left x = x - 1
+            right x = x + 1
+            currentValue = B.index xs start
+            info = "index: " <> show start <> " pos: " <> show (start `mod` lineWidth, start `div` lineWidth) <> " value: " <> show currentValue
+
+part2V2 :: B.ByteString -> Int
+part2V2 xs =
+            let
+                start = fromMaybe (error "no S") $ B.elemIndex 'S' xs
+                lineWidth = 1 + fromMaybe (error "no newline") (B.elemIndex '\n' xs)
+                l = B.length xs
+            in part2V2' start lineWidth l xs
+            --in  trace ("start: " <> show start <> " width: " <> show lineWidth <> " length: " <> show l) $ part2V2' start lineWidth l xs
+
+part2 = part2V2

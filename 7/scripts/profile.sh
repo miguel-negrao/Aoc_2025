@@ -35,10 +35,11 @@ done
 
 cd "$ROOT_DIR"
 
-export CABAL_DIR="$ROOT_DIR/.cabal"
-export XDG_CACHE_HOME="$ROOT_DIR/.cache"
-export XDG_STATE_HOME="$ROOT_DIR/.state"
+#export CABAL_DIR="$ROOT_DIR/.cabal"
+#export XDG_CACHE_HOME="$ROOT_DIR/.cache"
+#export XDG_STATE_HOME="$ROOT_DIR/.state"
 
+#cabal update
 cabal build "$PROG_NAME" --enable-profiling --enable-library-profiling \
   --ghc-options="$prof_auto -rtsopts"
 
@@ -48,7 +49,8 @@ if [[ $heap -eq 1 ]]; then
 fi
 rts_args+=("-RTS")
 
-cabal run "$PROG_NAME" -- "${prog_args[@]}" "${rts_args[@]}"
+cabal run "$PROG_NAME" --enable-profiling --enable-library-profiling \
+  --ghc-options="$prof_auto -rtsopts" -- "${prog_args[@]}" "${rts_args[@]}"
 
 echo "Wrote ${PROG_NAME}.prof" >&2
 if [[ $heap -eq 1 ]]; then

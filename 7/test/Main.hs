@@ -9,6 +9,7 @@ import Data.IORef
 import System.IO.Unsafe (unsafePerformIO)
 import Test.Tasty (defaultMain, testGroup)
 import Test.Tasty.HUnit (assertBool, assertEqual, testCase)
+import qualified Data.ByteString.Char8 as B
 
 main :: IO ()
 main = defaultMain $ testGroup "AoC"
@@ -23,7 +24,7 @@ main = defaultMain $ testGroup "AoC"
         input <- readFile "test_input"
         assertEqual "part1" 21 (part1 input)
     , testCase "part2 example" $ do
-        input <- readFile "test_input"
+        input <- B.readFile "test_input"
         assertEqual "part2" 40 (part2 input)
     , testCase "loopTableStore memoizes per coordinate" $ do
         ref <- newIORef (0 :: Int)
