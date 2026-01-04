@@ -32,7 +32,6 @@ module AoC
     , getPairsOrderedByDistance
     , part1UniqueLengths
     , part2
-    , Homework(..)
     ) where
 
 import Data.List
@@ -70,21 +69,8 @@ import Data.Ord (Down(..))
 
 type Parser = Parsec Void Text
 
-data Operation = Add | Multiply deriving (Show, Eq, Read)
-
-data Homework = Homework [[Natural]] [(Operation,Int)] deriving (Show, Eq, Read)
-
 type V3 = (Int,Int,Int)
 type ParsedType = [V3]
-
-pNatural :: Parser Natural
-pNatural = read <$> some digitChar
-
-pInt :: Parser Int
-pInt = read <$> some digitChar
-
-pFloat :: Parser Float
-pFloat = read <$> some digitChar
 
 pNumber :: Read a => Parser a
 pNumber = read <$> some digitChar
@@ -101,29 +87,6 @@ pNumberLine = do
 
 parser :: Parser ParsedType
 parser = some pNumberLine
-
-genTestString = do
-    s <- readFile "test_input"
-    putStrLn $  "tString = " <> show s
-
-tString = "162,817,812\n57,618,57\n906,360,560\n592,479,940\n352,342,300\n466,668,158\n542,29,236\n431,825,988\n739,650,466\n52,470,668\n216,146,977\n819,987,18\n117,168,530\n805,96,715\n346,949,466\n970,615,88\n941,993,340\n862,61,35\n984,92,344\n425,690,689\n"
-
--- >>> choose 2 [1..4]
--- [[1,2],[1,3],[1,4],[2,3],[2,4],[3,4]]
-
--- >>> combine 2 [1..4]
--- [[1,1],[1,2],[1,3],[1,4],[2,2],[2,3],[2,4],[3,3],[3,4],[4,4]]
-
-tParsed = case parse parser "input" tString of
-    Right x -> x
-    Left _ -> error "not parsed"
-
--- >>> tParsed
-
--- >>> head $ sortOn snd $ ((\(x:y:[]) -> ((x,y),distanceInt x y) ) <$> choose 2 tParsed)
--- (((162,817,812),(425,690,689)),100427)
-
--- the two junction boxes which are closest together are 162,817,812 and 425,690,689.
 
 distanceInt :: Num a => (a, a, a) -> (a, a, a) -> a
 distanceInt (x1,y1,z1) (x2,y2,z2) = dx*dx + dy*dy + dz*dz where
@@ -171,6 +134,73 @@ instance Show a => Show (OnePerLine a) where
   show :: Show a => OnePerLine a -> String
   show (OnePerLine xs) = unlines (map show xs)
 
+part1UniqueLengths :: Int -> [V3] -> [Int]
+part1UniqueLengths n xs = nub $ length <$> part1Groups n xs
+
+part1' :: Int -> ParsedType -> Int
+part1' n xs = product $ take 3 $ sortOn Down $ part1UniqueLengths n xs
+
+part1Test :: ParsedType -> Int
+part1Test = part1' 10
+
+part1 :: ParsedType -> Int
+part1 = part1' 1000
+
+-- PART 2
+
+part2 :: Text -> ParsedType -> Int
+part2 = undefined
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+genTestString = do
+    s <- readFile "test_input"
+    putStrLn $  "tString = " <> show s
+
+tString = "162,817,812\n57,618,57\n906,360,560\n592,479,940\n352,342,300\n466,668,158\n542,29,236\n431,825,988\n739,650,466\n52,470,668\n216,146,977\n819,987,18\n117,168,530\n805,96,715\n346,949,466\n970,615,88\n941,993,340\n862,61,35\n984,92,344\n425,690,689\n"
+
+-- >>> choose 2 [1..4]
+-- [[1,2],[1,3],[1,4],[2,3],[2,4],[3,4]]
+
+-- >>> combine 2 [1..4]
+-- [[1,1],[1,2],[1,3],[1,4],[2,2],[2,3],[2,4],[3,3],[3,4],[4,4]]
+
+tParsed = case parse parser "input" tString of
+    Right x -> x
+    Left _ -> error "not parsed"
+
+-- >>> tParsed
+
+-- >>> head $ sortOn snd $ ((\(x:y:[]) -> ((x,y),distanceInt x y) ) <$> choose 2 tParsed)
+-- (((162,817,812),(425,690,689)),100427)
+
+-- the two junction boxes which are closest together are 162,817,812 and 425,690,689.
+
+
+
 {--
 To save on string lights, the Elves would like to focus on connecting pairs of junction boxes that are as close together as possible according to straight-line distance. In this example, the two junction boxes which are closest together are 162,817,812 and 425,690,689.
 
@@ -199,15 +229,6 @@ test1 = take 10 $ getPairsOrderedByDistance $ tParsed
 -- (V3 346.0 949.0 466.0,V3 425.0 690.0 689.0)
 -- (V3 906.0 360.0 560.0,V3 984.0 92.0 344.0)
 
--- >>> length tParsed
--- 20
-
--- >>> length $ getPairsOrderedByDistance tParsed
--- 190
-
--- >>>  length $ nub $ concatMap (\(a,b) -> [a,b] )$ take 10 $ getPairsOrderedByDistance $ tParsed
--- 13
-
 test2 = part1Groups 10 tParsed
 -- >>> OnePerLine test2
 -- fromList [(739,650,466),(805,96,715),(862,61,35),(906,360,560),(984,92,344)]
@@ -215,36 +236,7 @@ test2 = part1Groups 10 tParsed
 -- fromList [(819,987,18),(941,993,340)]
 -- fromList [(52,470,668),(117,168,530)]
 
--- 984.0 92.0 344.0 está em dois grupos
 
--- After making the ten shortest connections, there are 11 circuits: one circuit which contains 5 junction boxes, one circuit which contains 4 junction boxes, two circuits which contain 2 junction boxes each, and seven circuits which each contain a single junction box.
--- 5, 4 , 2, 2
-
--- >>> fmap length $ part1Groups 10 tParsed
--- [5,4,2,2]
-
--- >>> part1UniqueLengths 10 tParsed
--- [5,4,2]
-
--- >>> part1' 10 tParsed
--- 40
-
-part1UniqueLengths :: Int -> [V3] -> [Int]
-part1UniqueLengths n xs = nub $ length <$> part1Groups n xs
-
-part1' :: Int -> ParsedType -> Int
-part1' n xs = product $ take 3 $ sortOn Down $ part1UniqueLengths n xs
-
-part1Test :: ParsedType -> Int
-part1Test = part1' 10
-
-part1 :: ParsedType -> Int
-part1 = part1' 1000
-
--- PART 2
-
-part2 :: Text -> ParsedType -> Int
-part2 = undefined
 
 mainTest = do
     input <- TIO.readFile "input"
