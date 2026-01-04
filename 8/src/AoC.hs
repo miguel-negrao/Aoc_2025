@@ -66,8 +66,8 @@ import Control.Comonad.Trans.Env (runEnvT)
 import qualified Data.Foldable as Set
 import Data.Function (fix)
 import Text.Megaparsec.Debug
-import Linear.V3
-import Linear.Metric
+--import Linear.V3
+--import Linear.Metric
 import Math.Combinat.Sets (combine, choose)
 
 type Parser = Parsec Void Text
@@ -76,7 +76,8 @@ data Operation = Add | Multiply deriving (Show, Eq, Read)
 
 data Homework = Homework [[Natural]] [(Operation,Int)] deriving (Show, Eq, Read)
 
-type ParsedType = [V3 Float]
+type V3 = (Int,Int,Int)
+type ParsedType = [V3]
 
 pNatural :: Parser Natural
 pNatural = read <$> some digitChar
@@ -90,7 +91,7 @@ pFloat = read <$> some digitChar
 pNumber :: Read a => Parser a
 pNumber = read <$> some digitChar
 
-pNumberLine :: Parser (V3 Float)
+pNumberLine :: Parser V3
 pNumberLine = do
     x <- pNumber
     char ','
@@ -98,7 +99,7 @@ pNumberLine = do
     char ','
     z <- pNumber
     eol
-    return $ V3 x y z
+    return (x,y,z)
 
 parser :: Parser ParsedType
 parser = some pNumberLine
@@ -121,26 +122,27 @@ tParsed = case parse parser "input" tString of
 
 -- >>> tParsed
 
--- >>> choose 2 tParsed
-
-t2 = take 10 $ sortOn snd $ fmap (\(x:y:[]) -> ((x,y),distance x y) )$ choose 2 tParsed
+t2 = head $ sortOn snd $ ((\(x:y:[]) -> ((x,y),distanceInt x y) ) <$> choose 2 tParsed)
 -- >>> t2
--- [((V3 162.0 817.0 812.0,V3 425.0 690.0 689.0),316.9022),((V3 162.0 817.0 812.0,V3 431.0 825.0 988.0),321.56027),((V3 906.0 360.0 560.0,V3 805.0 96.0 715.0),322.36935),((V3 431.0 825.0 988.0,V3 425.0 690.0 689.0),328.11887),((V3 862.0 61.0 35.0,V3 984.0 92.0 344.0),333.65552),((V3 52.0 470.0 668.0,V3 117.0 168.0 530.0),338.3386),((V3 819.0 987.0 18.0,V3 941.0 993.0 340.0),344.3893),((V3 906.0 360.0 560.0,V3 739.0 650.0 466.0),347.5989),((V3 346.0 949.0 466.0,V3 425.0 690.0 689.0),350.78625),((V3 906.0 360.0 560.0,V3 984.0 92.0 344.0),352.93625)]
+-- (((162,817,812),(425,690,689)),100427)
 
 -- the two junction boxes which are closest together are 162,817,812 and 425,690,689.
 
-
--- >>> choose 2 [1..6]
-
+distanceInt :: Num a => (a, a, a) -> (a, a, a) -> a
+distanceInt (x1,y1,z1) (x2,y2,z2) = dx*dx + dy*dy + dz*dz where
+  dx = x1 - x2
+  dy = y1 - y2
+  dz = z1 - z2
 
 -- |
 -- sortOn: Sort a list by comparing the results of a key function applied to each element. sortOn f is equivalent to sortBy (comparing f), but has the performance advantage of only evaluating f once for each element in the input list. This is called the decorate-sort-undecorate paradigm, or Schwartzian transform.
-getPairsOrderedByDistance :: [V3 Float] -> [(V3 Float, V3 Float)]
-getPairsOrderedByDistance xs = sortOn (uncurry distance) ((\[a,b] -> (a,b)) <$> choose 2 xs)
+getPairsOrderedByDistance :: [V3] -> [(V3, V3)]
+getPairsOrderedByDistance xs = sortOn (uncurry distanceInt) ((\[a,b] -> (a,b)) <$> choose 2 xs)
 
 -- could get rid of coordinates after calculating distances to get [Int] if needed
 
-connectedComponents :: [(V3 Float, V3 Float)] -> [Set (V3 Float)]
+-- TODO : when two groups have a in one and b in the other join the groups
+connectedComponents :: [(V3, V3)] -> [Set V3]
 connectedComponents xs = go xs []
     where
         go [] ys = ys
@@ -152,7 +154,7 @@ connectedComponents xs = go xs []
               | b `elem` group = Set.insert a group : groups
               | otherwise = group : updateGroups pair groups
 
-part1Groups :: Int -> [V3 Float] -> [Set (V3 Float)]
+part1Groups :: Int -> [V3] -> [Set V3]
 part1Groups n xs = groups where
     pairs = take n $ getPairsOrderedByDistance xs
     groups = connectedComponents pairs
@@ -203,20 +205,24 @@ test1 = take 10 $ getPairsOrderedByDistance $ tParsed
 -- 13
 
 test2 = part1Groups 10 tParsed
-
 -- >>> OnePerLine test2
--- fromList [V3 162.0 817.0 812.0,V3 346.0 949.0 466.0,V3 425.0 690.0 689.0,V3 431.0 825.0 988.0]
--- fromList [V3 739.0 650.0 466.0,V3 805.0 96.0 715.0,V3 906.0 360.0 560.0,V3 984.0 92.0 344.0]
--- fromList [V3 862.0 61.0 35.0,V3 984.0 92.0 344.0]
--- fromList [V3 52.0 470.0 668.0,V3 117.0 168.0 530.0]
--- fromList [V3 819.0 987.0 18.0,V3 941.0 993.0 340.0]
+-- fromList [(162,817,812),(346,949,466),(425,690,689),(431,825,988)]
+-- fromList [(739,650,466),(805,96,715),(906,360,560),(984,92,344)]
+-- fromList [(862,61,35),(984,92,344)]
+-- fromList [(52,470,668),(117,168,530)]
+-- fromList [(819,987,18),(941,993,340)]
+
+-- 984.0 92.0 344.0 está em dois grupos
 
 -- After making the ten shortest connections, there are 11 circuits: one circuit which contains 5 junction boxes, one circuit which contains 4 junction boxes, two circuits which contain 2 junction boxes each, and seven circuits which each contain a single junction box.
--- >>> fmap length $ part1Groups 1000 tParsed
--- [20,6,3,5,3,2]
+-- >>> fmap length $ part1Groups 10 tParsed
+-- [4,4,2,2,2]
+
+-- >>> (sum (fmap length $ part1Groups 10 tParsed), length $ nub $ concatMap (\(a,b) -> [a,b] )$ take 10 $ getPairsOrderedByDistance $ tParsed)
+-- (14,13)
 
 part1' :: Int -> ParsedType -> Int
-part1' n xs = product (length <$> part1Groups n xs) 
+part1' n xs = product (length <$> part1Groups n xs)
 
 part1Test :: ParsedType -> Int
 part1Test = part1' 10
