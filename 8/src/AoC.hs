@@ -5,6 +5,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE InstanceSigs #-}
 {- HLINT ignore "Unused LANGUAGE pragma" -}
 
 {--
@@ -157,8 +158,32 @@ part1Groups n xs = groups where
     pairs = take n $ getPairsOrderedByDistance xs
     groups = connectedComponents pairs
 
--- >>> part1Groups 10 tParsed
--- [fromList [V3 162.0 817.0 812.0,V3 346.0 949.0 466.0,V3 425.0 690.0 689.0,V3 431.0 825.0 988.0],fromList [V3 739.0 650.0 466.0,V3 805.0 96.0 715.0,V3 906.0 360.0 560.0,V3 984.0 92.0 344.0],fromList [V3 862.0 61.0 35.0,V3 984.0 92.0 344.0],fromList [V3 52.0 470.0 668.0,V3 117.0 168.0 530.0],fromList [V3 819.0 987.0 18.0,V3 941.0 993.0 340.0]]
+-- by ChatGPT
+newtype OnePerLine a = OnePerLine [a]
+
+-- by ChatGPT
+instance Show a => Show (OnePerLine a) where
+  show :: Show a => OnePerLine a -> String
+  show (OnePerLine xs) = unlines (map show xs)
+
+{--
+To save on string lights, the Elves would like to focus on connecting pairs of junction boxes that are as close together as possible according to straight-line distance. In this example, the two junction boxes which are closest together are 162,817,812 and 425,690,689.
+
+By connecting these two junction boxes together, because electricity can flow between them, they become part of the same circuit. After connecting them, there is a single circuit which contains two junction boxes, and the remaining 18 junction boxes remain in their own individual circuits.
+
+Now, the two junction boxes which are closest together but aren't already directly connected are 162,817,812 and 431,825,988. After connecting them, since 162,817,812 is already connected to another junction box, there is now a single circuit which contains three junction boxes and an additional 17 circuits which contain one junction box each.
+
+The next two junction boxes to connect are 906,360,560 and 805,96,715. After connecting them, there is a circuit containing 3 junction boxes, a circuit containing 2 junction boxes, and 15 circuits which contain one junction box each.
+
+The next two junction boxes are 431,825,988 and 425,690,689. Because these two junction boxes were already in the same circuit, nothing happens!
+--}
+
+-- >>> OnePerLine $ part1Groups 10 tParsed
+-- fromList [V3 162.0 817.0 812.0,V3 346.0 949.0 466.0,V3 425.0 690.0 689.0,V3 431.0 825.0 988.0]
+-- fromList [V3 739.0 650.0 466.0,V3 805.0 96.0 715.0,V3 906.0 360.0 560.0,V3 984.0 92.0 344.0]
+-- fromList [V3 862.0 61.0 35.0,V3 984.0 92.0 344.0]
+-- fromList [V3 52.0 470.0 668.0,V3 117.0 168.0 530.0]
+-- fromList [V3 819.0 987.0 18.0,V3 941.0 993.0 340.0]
 
 -- After making the ten shortest connections, there are 11 circuits: one circuit which contains 5 junction boxes, one circuit which contains 4 junction boxes, two circuits which contain 2 junction boxes each, and seven circuits which each contain a single junction box.
 -- >>> fmap length $ part1Groups 10 tParsed
