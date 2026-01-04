@@ -10,24 +10,17 @@
 
 {--
 part1
-time: 1h10m
+time: 1h30 + 
 attempts: 1  
-used chatgpt: yes, to investigate looping with megaparsec
-notes: my parsers were looping. Finally had to resort to chatgpt to suggest using sepEndBy. It's hard to write that function by hand.
+used chatgpt: 
+notes: 
 
 part2
-time: ~1h
-attempts: 1
+time: 
+attempts: 
 used chatgpt: no
-notes: not hard, just had to be careful with transpose
+notes: 
 
-All
-  part1: OK
-    89.7 μs ± 4.7 μs
-  part2: OK
-    3.60 ms ± 175 μs
-
-All 2 tests passed (2.70s)
 --}
 
 module AoC
@@ -35,11 +28,14 @@ module AoC
     , parser
     , part1
     , part1Test
+    , part1Groups
+    , getPairsOrderedByDistance
+    , part1UniqueLengths
     , part2
     , Homework(..)
     ) where
 
-import Data.List (tails, subsequences, inits, nub, sort, (\\), foldl', transpose, sortOn)
+import Data.List
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Void (Void)
@@ -50,6 +46,7 @@ import Text.Megaparsec.Char
 import Control.Error
 import Data.Set (Set)
 import qualified Data.Set as Set
+import qualified Data.Text.IO as TIO
 
 -- comonad stuff
 import Control.Comonad
@@ -141,18 +138,25 @@ getPairsOrderedByDistance xs = sortOn (uncurry distanceInt) ((\[a,b] -> (a,b)) <
 
 -- could get rid of coordinates after calculating distances to get [Int] if needed
 
--- TODO : when two groups have a in one and b in the other join the groups
 connectedComponents :: [(V3, V3)] -> [Set V3]
 connectedComponents xs = go xs []
     where
         go [] ys = ys
-        go (pair:xs) groups = go xs newGroups where
-            newGroups = updateGroups pair groups
-            updateGroups (a,b) [] = [Set.insert b $ Set.singleton a]
-            updateGroups (a,b) (group:groups)
-              | a `elem` group = Set.insert b group : groups
-              | b `elem` group = Set.insert a group : groups
-              | otherwise = group : updateGroups pair groups
+        go (pair@(a,b):xs) groups = go xs newGroups where
+            withElem = fmap (\g -> (g, a `elem` g, b `elem` g)) groups
+            (with, without) = partition (\(_,b,c) -> b || c) withElem
+            fst3 (x,_,_) = x
+            newGroups :: [Set V3]
+            newGroups = case with of
+              -- a and b are not in any group, create a new group with the two elements 
+              [] ->  Set.insert b (Set.singleton a) : groups
+              -- single group: if one the two elements is missing from the group, add it
+              -- elements in with have second element true or third element true or both
+              [(g,aElem,bElem)] -> (if not aElem then Set.insert a g else if not bElem then Set.insert b g else g) : (fst3 <$> without)
+              -- very slightly slower (10ms)
+              --[(g,aElem,bElem)] -> (Set.insert a $ Set.insert b g) : (fst3 <$> without)
+              -- if the elements are in different groups then unite the groups
+              zs -> Set.unions (fst3 <$> with) : (fst3 <$> without)
 
 part1Groups :: Int -> [V3] -> [Set V3]
 part1Groups n xs = groups where
@@ -206,23 +210,30 @@ test1 = take 10 $ getPairsOrderedByDistance $ tParsed
 
 test2 = part1Groups 10 tParsed
 -- >>> OnePerLine test2
+-- fromList [(739,650,466),(805,96,715),(862,61,35),(906,360,560),(984,92,344)]
 -- fromList [(162,817,812),(346,949,466),(425,690,689),(431,825,988)]
--- fromList [(739,650,466),(805,96,715),(906,360,560),(984,92,344)]
--- fromList [(862,61,35),(984,92,344)]
--- fromList [(52,470,668),(117,168,530)]
 -- fromList [(819,987,18),(941,993,340)]
+-- fromList [(52,470,668),(117,168,530)]
 
 -- 984.0 92.0 344.0 está em dois grupos
 
 -- After making the ten shortest connections, there are 11 circuits: one circuit which contains 5 junction boxes, one circuit which contains 4 junction boxes, two circuits which contain 2 junction boxes each, and seven circuits which each contain a single junction box.
--- >>> fmap length $ part1Groups 10 tParsed
--- [4,4,2,2,2]
+-- 5, 4 , 2, 2
 
--- >>> (sum (fmap length $ part1Groups 10 tParsed), length $ nub $ concatMap (\(a,b) -> [a,b] )$ take 10 $ getPairsOrderedByDistance $ tParsed)
--- (14,13)
+-- >>> fmap length $ part1Groups 10 tParsed
+-- [5,4,2,2]
+
+-- >>> part1UniqueLengths 10 tParsed
+-- [5,4,2]
+
+-- >>> part1' 10 tParsed
+-- 40
+
+part1UniqueLengths :: Int -> [V3] -> [Int]
+part1UniqueLengths n xs = nub $ length <$> part1Groups n xs
 
 part1' :: Int -> ParsedType -> Int
-part1' n xs = product (length <$> part1Groups n xs)
+part1' n xs = product $ part1UniqueLengths n xs
 
 part1Test :: ParsedType -> Int
 part1Test = part1' 10
@@ -235,3 +246,11 @@ part1 = part1' 1000
 part2 :: Text -> ParsedType -> Int
 part2 = undefined
 
+mainTest = do
+    input <- TIO.readFile "input"
+    case parse parser "input" input of
+        Right parsed -> do
+            print $ part1UniqueLengths 1000 parsed
+            putStrLn $ "part1: " <> show (part1 parsed) <> "\n"
+            --putStrLn $ "part2: " <> show (part2 input parsed) <> "\n"
+        Left e -> putStrLn (errorBundlePretty e)

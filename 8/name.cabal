@@ -45,6 +45,7 @@ test-suite test
                        tasty-quickcheck,
                        QuickCheck,
                        containers,
+                       combinat,
                        aoc
   default-language:    Haskell2010
 
