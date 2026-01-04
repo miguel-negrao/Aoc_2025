@@ -27,6 +27,12 @@ attempts: 1
 used chatgpt: yes, to debug why my solution was so slow.
 notes: initial thoughts: if part1 takes 30s part 2 cannot be done with comonads... perhaps create a graph and go away from the table, then check all possible ways to walk the graph from a start point to an end point. My initial solutions were too slow, I had to get some help from chatgpt which suggested Bytestring and memoization. Since I was already using memocombinators I used that, it was a good chance to learn that library.
 
+part1
+V1 ~20s
+V2 ~12s
+V5 ~12s
+v6 ~220ms
+
 Benchmark bench: RUNNING...
 All
   part1: OK
@@ -298,6 +304,8 @@ part1V1 xs =
                 final = head $ drop (h - 1) $ loopTableStore rule initial
             in countTrue $ extend countSplits final
 
+--- PART 1 V2
+
 type TableStore2 a = EnvT (Width,Height) (Store Int) a
 type Table2 a = Map Int a
 -- |
@@ -392,6 +400,8 @@ part1V2 xs =
                 final = head $ drop (h - 1) $ loopTableStore2 rule2 initial
             in countTrue2 $ extend countSplits2 final
 
+--- PART 1 V3
+
 downFrom (a,b) = (a,b+1)
 downLeftFrom (a,b) = (a-1, b+1)
 downRightFrom (a,b) = (a+1,b+1)
@@ -419,30 +429,7 @@ part1V3 xs =
                 positions = part1V3' (start,0) table
             in  length $ nub positions
 
--- |
--- This is based on the classic DFS algorithm for graphs as adjacency lists in Haskell as explained by ChatGPT.
--- After 7 minutes was not done
-part1V4' :: Position -> Table TachionManifoldEntity -> [Position]
-part1V4' start t =
-    let
-        go seen [] = []
-        go seen (x:xs) = case Map.lookup x t of
-            Nothing -> go seen xs
-            Just Splitter ->
-                if x `elem` seen then go seen xs else x : go (Set.insert x seen) ([downLeftFrom start, downRightFrom start] ++ xs)
-            Just _ -> go seen (downFrom x:xs)
-    in go Set.empty [start]
-
-
-part1V4 :: String -> Int
-part1V4 xs =
-            let
-                table = listToTable $ stringToList xs
-                start = fromMaybe (error "no S") $ elemIndex 'S' xs
-                positions = part1V4' (start,0) table
-            in  length positions
-
--- V5
+--- PART 1 V5
 countTrueV5 :: TableStore2 Bool -> Int
 countTrueV5 s = let (w, h) = ask s in countTrueList $ [ peek (j*w+i) s | i <- [0..(w-2)], j <- [0..(h-1)]]
 
