@@ -10,10 +10,10 @@
 
 {--
 part1
-time: 1h30 + 
-attempts: 1  
-used chatgpt: 
-notes: 
+time: 2h30
+attempts: 2  
+used chatgpt: yes, to generate quickcheck tests for part1 
+notes: Fairly easy. My first try the example was not giving the right answer, that was because I was not joining groups which had elements from a pair. Looking at the generated groups I was able to determine this manually. Then I didn't get the final answer correct because I overlooked that I should multiply just the 3 largest group sizes. I let ChatGPT generate quickcheck tests for my code, but it passed all the tests. Finally re-reading the challenge I saw the error. Used only normal Haskell code, exec time is ~150ms, so good enough, no need to optimize more.
 
 part2
 time: 
@@ -66,6 +66,7 @@ import Text.Megaparsec.Debug
 --import Linear.V3
 --import Linear.Metric
 import Math.Combinat.Sets (combine, choose)
+import Data.Ord (Down(..))
 
 type Parser = Parsec Void Text
 
@@ -232,7 +233,7 @@ part1UniqueLengths :: Int -> [V3] -> [Int]
 part1UniqueLengths n xs = nub $ length <$> part1Groups n xs
 
 part1' :: Int -> ParsedType -> Int
-part1' n xs = product $ part1UniqueLengths n xs
+part1' n xs = product $ take 3 $ sortOn Down $ part1UniqueLengths n xs
 
 part1Test :: ParsedType -> Int
 part1Test = part1' 10
