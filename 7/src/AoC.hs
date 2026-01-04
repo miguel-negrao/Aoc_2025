@@ -11,7 +11,7 @@ attempts: 1
 used chatgpt: yes, to add a memoization test and then change slightly the memoization function: "Updated loopTableStore to memoize both the input and output stores by adding a memoizeTableStore helper and composing it before and after extend. This change ensures each state’s lookup function is cached (so repeated peeks don’t re-run the evolution rule) and also keeps repeated lookups inside the rule cheap by memoizing the prior state." 
 Also used it to try to understand why my solution is so slow.
 
-notes: After reading my initial idea is to use comonads with tables. The evolution rules are if this cell is | put a | below, except if below is ^ put on |^|. Stop when state doesn't change on the whole board. At the end count the number ^ with | above. The question is going to be if my memoization scheme is really working and is good enough for the size of the table. 35s seems a bit too long, it's a pity as hte code is really elegant.
+notes: After reading my initial idea is to use comonads with tables. The evolution rules are if this cell is | put a | below, except if below is ^ put on |^|. Stop when state doesn't change on the whole board. At the end count the number ^ with | above. The question is going to be if my memoization scheme is really working and is good enough for the size of the table. Done but takes 35s seems a bit too long, it's a pity as hte code is really elegant. Optimizing a bit goes to 12s. It appears there are solutions with ~0.0005 s.
 
 part2
 time: 
@@ -39,7 +39,7 @@ module AoC
     , tableToTableStore
     ) where
 
-import Data.List (tails, subsequences, inits)
+import Data.List
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Void (Void)
@@ -58,9 +58,10 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Control.Lens
 import Data.Maybe (catMaybes, fromMaybe)
-import Control.Comonad.Env (EnvT(..), ask)
+import Control.Comonad.Env (EnvT(..), ask, runEnvT)
 import Control.Monad (guard)
-import Control.Comonad.Trans.Env (runEnvT)
+import GHC.IO.Encoding (BufferCodec(encode))
+import Data.Bits (Bits(xor))
 
 -- COMONAD  STUFF
 
@@ -180,7 +181,8 @@ memoizeTableStore s =
     in EnvT e (tab (Memo.pair Memo.integral Memo.integral) s')
 
 loopTableStore :: (TableStore a -> a) -> TableStore a -> [TableStore a]
-loopTableStore f = iterate (memoizeTableStore . extend f . memoizeTableStore)
+loopTableStore f = iterate (memoizeTableStore . extend f )
+-- this appears to be faster than memoizeTableStore . extend f . memoizeTableStore  or extend f . memoizeTableStore 
 
 findStableState :: Eq a => Int -> (TableStore a -> a) -> TableStore a -> Maybe (TableStore a)
 findStableState maxInterations f s
@@ -208,6 +210,11 @@ genTestString = do
 
 tString :: String
 tString = ".......S.......\n...............\n.......^.......\n...............\n......^.^......\n...............\n.....^.^.^.....\n...............\n....^.^...^....\n...............\n...^.^...^.^...\n...............\n..^...^.....^..\n...............\n.^.^.^.^.^...^.\n...............\n"
+
+tStore = listToStore $ stringToList tString
+
+-- >>> storeToString $ head $ drop 4 $  loopTableStore rule tStore
+-- ".......S.......\n.......|.......\n......|^|......\n......|.|......\n.....|^|^|.....\n...............\n.....^.^.^.....\n...............\n....^.^...^....\n...............\n...^.^...^.^...\n...............\n..^...^.....^..\n...............\n.^.^.^.^.^...^.\n...............\n"
 
 -- These functions are specific to the type of Table
 data TachionManifoldEntity = EmptySpace | Ray | Splitter | StartPosition deriving (Eq, Show, Read)
@@ -261,22 +268,133 @@ countSplits s =
         Splitter -> peek' up == Ray
         _ -> False
 
-part1 :: String -> Int
-part1 xs =
+countTrueList :: [Bool] -> Int
+countTrueList = length . filter id
+
+-- 22s
+part1V1 :: String -> Int
+part1V1 xs =
             let
                 initial = listToStore $ stringToList xs
-                final = findStableStateError 300 rule initial
+                (w,h) = ask initial
+                final = head $ drop (h - 1) $ loopTableStore rule initial
             in countTrue $ extend countSplits final
+
+type TableStore2 a = EnvT (Width,Height) (Store Int) a
+type Table2 a = Map Int a
+-- |
+-- Put lines next to each other and then index as a list
+encodePos :: Width -> Height -> Position -> Int
+encodePos w h (x,y) = (y * w) + x
+
+decodePos :: Width -> Height -> Int -> Position
+decodePos w h z = let (a,b) = divMod z w in (b, a)
+
+listToTable2 :: Width -> Height ->  [[a]] -> Table2 a
+listToTable2 w h xs = Map.fromList $ concat $ imap (\j line -> imap (\i e -> (encodePos w h (i,j), e)) line) xs
+
+tableToTableStore2 :: Width -> Height -> Table2 TachionManifoldEntity -> TableStore2 TachionManifoldEntity
+tableToTableStore2 w h xs =
+    let
+        f z = fromMaybe EmptySpace $ Map.lookup z xs
+    in EnvT (w,h) $ store f 0
+
+listToStore2 :: [[TachionManifoldEntity]] -> TableStore2 TachionManifoldEntity
+listToStore2 xs = tableToTableStore2 w h $ listToTable2 w h xs where
+      (w,h) = tableDimensions xs
+
+peekPos :: Position -> TableStore2 a -> a
+peekPos pair s =
+    let
+        (w,h) = ask s
+    in peek (encodePos w h pair) s
+
+peeksPos :: (Position -> Position) -> TableStore2 a -> a
+peeksPos f s =
+    let
+        (w,h) = ask s
+    in peeks (encodePos w h . f . decodePos w h) s
+
+storeToCoordList2 :: TableStore2 a -> [(Int, a)]
+storeToCoordList2 s = do
+    let (w,h) = ask s
+    i <- [0..(w-1)]
+    j <- [0..(h-1)]
+    return (encodePos w h (i,j), peek (encodePos w h (i,j)) s)
+
+storeToTable2 :: TableStore2 a -> Table2 a
+storeToTable2 s = Map.fromList $ storeToCoordList2 s
+
+storeToList2 :: TableStore2 a -> [[a]]
+storeToList2 s = do
+    let (w, h) = ask s
+    j <- [0..(h-1)]
+    return $ do
+        i <- [0..(w-1)]
+        return $ peekPos (i,j) s
+
+memoizeTableStore2 :: TableStore2 a -> TableStore2 a
+memoizeTableStore2 s =
+    let (e,s') = runEnvT s
+    in EnvT e (tab Memo.integral s')
+
+loopTableStore2 :: (TableStore2 a -> a) -> TableStore2 a -> [TableStore2 a]
+loopTableStore2 f = iterate (memoizeTableStore2 . extend f )
+
+countTrue2 :: TableStore2 Bool -> Int
+countTrue2 s = let (w, h) = ask s in countTrueList $ [ peek i s | i <- [0..((w*h)-1)]]
+
+rule2 :: TableStore2 TachionManifoldEntity -> TachionManifoldEntity
+rule2 s =
+    let
+        current = extract s
+        peek' p = peeksPos (sumPair p) s
+    in case current of
+        EmptySpace -> if
+            (peek' up `elem` [Ray, StartPosition]) ||
+            (peek' left == Splitter && peek' (-1,-1) == Ray) ||
+            (peek' right == Splitter && peek' (1,-1) == Ray) then Ray else EmptySpace
+        _ -> current
+
+countSplits2 :: TableStore2 TachionManifoldEntity -> Bool
+countSplits2 s =
+    let
+        current = extract s
+        peek' p = peeksPos (sumPair p) s
+    in case current of
+        Splitter -> peek' up == Ray
+        _ -> False
+
+-- |12.3 s
+part1V2 :: String -> Int
+part1V2 xs =
+            let
+                initial = listToStore2 $ stringToList xs
+                (w,h) = ask initial
+                final = head $ drop (h - 1) $ loopTableStore2 rule2 initial
+            in countTrue2 $ extend countSplits2 final
+
+down3 (a,b) = (a,b+1)
+downLeft3 (a,b) = (a-1, b+1)
+downRight3 (a,b) = (a+1,b+1)
+
+part1V3' :: Position -> Table TachionManifoldEntity -> [Position]
+part1V3' start t = let d = down3 start in case Map.lookup d t of
+    Nothing -> []
+    Just Splitter -> [d] ++ part1V3' (downLeft3 start) t ++ part1V3' (downRight3 start) t
+    Just _ -> part1V3' d t
+
+-- | 56s
+part1V3 :: String -> Int
+part1V3 xs =
+            let
+                table = listToTable $ stringToList xs
+                start = fromMaybe (error "no S") $ elemIndex 'S' xs
+            in  length $ nub $ part1V3' (trace (show start) start,0) table
+
+
+part1 :: String -> Int
+part1 = part1V2
 
 part2 :: String -> Int
 part2 xs = undefined
-
-    -- let
-    --     countRolls = length . concatMap (filter id) . storeToList 
-    --     st = listToStore xs
-    --     st' = findStableStateError 1000 removeRolls st
-    --     numRollsAtStart = countRolls st
-    --     numRollsAtEnd = countRolls st'
-    --     numRollsRemoved = numRollsAtStart - numRollsAtEnd 
-    -- in numRollsRemoved
-    -- --in trace ("\n" <> storeToString st') numRollsRemoved
