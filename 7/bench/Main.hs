@@ -11,10 +11,9 @@ main = do
     input <- readFile "input"
     --input2 <- readFile "input2"
     --testInput <- readFile "test_input"
-    input <- B.readFile "input"
+    binput <- B.readFile "input"
     defaultMain
-        [-- bench "part1" $ nf part1 testInput
-        bench "part2" $ nf part2 input, 
-        bench "part2" $ nf part2 input 
-        --bench "part2" $ nf part2 input
+        [
+        bench "part1" $ nf part1 binput,
+        bench "part2" $ nf part2 binput 
         ]   

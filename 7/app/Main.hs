@@ -9,10 +9,5 @@ main :: IO ()
 main = do
     --input <- readFile "input2"
     input <- B.readFile "input"
-    --putStrLn $ "part1: " <> show (part1 input) <> "\n"
-    putStrLn $ "part2: " <> show (part2 input) <> "\n"
-    -- case parse parser "input" input of
-    --     Right parsed -> do
-    --         putStrLn $ "part1: " <> show (part1 parsed) <> "\n"
-    --         putStrLn $ "part2: " <> show (part2 parsed) <> "\n"
-    --     Left e -> putStrLn (errorBundlePretty e)
+    putStrLn $ "part1: " <> show (part1 input)
+    putStrLn $ "part2: " <> show (part2 input)

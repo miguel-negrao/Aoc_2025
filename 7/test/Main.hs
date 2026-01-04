@@ -21,7 +21,7 @@ main = defaultMain $ testGroup "AoC"
     --     input <- TIO.readFile "input"
     --     assertBool "expected parse to succeed" (isRight (parse parser "input" input))
     testCase "part1 example" $ do
-        input <- readFile "test_input"
+        input <- B.readFile "test_input"
         assertEqual "part1" 21 (part1 input)
     , testCase "part2 example" $ do
         input <- B.readFile "test_input"

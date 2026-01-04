@@ -19,6 +19,8 @@ Done but takes 35s seems a bit too long, it's a pity as the code is really elega
     
 Looking at this as graph problem, the splitters where the ray is split are the vertices, together with the start position and then end positions of the rays when they leave the chamber. The question is how many vertices are there if we exclude the start and end positions.
 
+V6 uses just bytestring and 
+
 part2
 time: 
 attempts: 1
@@ -27,12 +29,12 @@ notes: initial thoughts: if part1 takes 30s part 2 cannot be done with comonads.
 
 Benchmark bench: RUNNING...
 All
+  part1: OK
+    211  ms ± 6.8 ms
   part2: OK
-    8.42 ms ± 649 μs
-  part2: OK
-    8.89 ms ± 190 μs
+    8.79 ms ± 276 μs
 
-All 2 tests passed (2.92s)
+All 2 tests passed (2.09s)
 --}
 
 module AoC
@@ -232,13 +234,16 @@ tStore = listToStore $ stringToList tString
 -- These functions are specific to the type of Table
 data TachionManifoldEntity = EmptySpace | Ray | Splitter | StartPosition deriving (Eq, Show, Read)
 
+charToTachionManifoldEntity :: Char -> TachionManifoldEntity
+charToTachionManifoldEntity '|' = Ray
+charToTachionManifoldEntity '^' = Splitter
+charToTachionManifoldEntity '.' = EmptySpace
+charToTachionManifoldEntity 'S' = StartPosition
+charToTachionManifoldEntity '\n' = EmptySpace
+charToTachionManifoldEntity c = error $ "string can only have | ^ and spaces. found : " <> show c
+
 stringToList :: String -> [[TachionManifoldEntity]]
-stringToList = fmap (fmap f) . lines where
-    f '|' = Ray
-    f '^' = Splitter
-    f '.' = EmptySpace
-    f 'S' = StartPosition
-    f c = error $ "string can only have | ^ and spaces. found : " <> show c
+stringToList = fmap (fmap charToTachionManifoldEntity) . lines
 
 listToString :: [[TachionManifoldEntity]] -> String
 listToString xs = unlines $ fmap (fmap f) xs where
@@ -437,9 +442,59 @@ part1V4 xs =
                 positions = part1V4' (start,0) table
             in  length positions
 
+-- V5
+countTrueV5 :: TableStore2 Bool -> Int
+countTrueV5 s = let (w, h) = ask s in countTrueList $ [ peek (j*w+i) s | i <- [0..(w-2)], j <- [0..(h-1)]]
 
-part1 :: String -> Int
-part1 = part1V2
+bytestringToTableStoreV5 :: B.ByteString -> TableStore2 TachionManifoldEntity
+bytestringToTableStoreV5 bs =
+    let
+        f z
+            | 0 <= z && z < length = charToTachionManifoldEntity $ B.index bs z
+            | otherwise = EmptySpace
+            
+        width = fromMaybe (error "no newline") (B.elemIndex '\n' bs)
+        widthPlusOne = 1 + width
+        length = B.length bs
+        height = length `div` widthPlusOne
+    in EnvT (widthPlusOne, height) $ store f 0
+
+-- | same 12s
+part1V5 :: B.ByteString -> Int
+part1V5 xs =
+            let
+                initial = bytestringToTableStoreV5 xs
+                (w,h) = ask initial
+                final = head $ drop (h - 1) $ loopTableStore2 rule2 initial
+            in countTrueV5 $ extend countSplits2 final
+
+--- PART 1 V6
+-- I believe this is a dfs algorithm. It keeps going down and putting the right side of the spliiter on the list of positions todo. It does not go through any position it has already seen before.
+part1V6' :: Int -> Int -> Int -> B.ByteString -> Int
+part1V6' start lineWidth l bs = go [start] [] 0 where
+    go (x:xs) seen count
+        | x `elem` seen = go xs seen count
+        | x >= l = go xs seen count -- trace ("exit: " <> show (start `mod` lineWidth)) 1
+        | currentValue == '^' = go (left x: right x:xs) (x:seen) (count + 1)
+        | otherwise = go (down x:xs) (x:seen) count
+        where
+            down x = x + lineWidth
+            left x = x - 1
+            right x = x + 1
+            currentValue = B.index bs x
+            info = "index: " <> show start <> " pos: " <> show (start `mod` lineWidth, start `div` lineWidth) <> " value: " <> show currentValue
+    go [] _ count = count
+
+
+part1V6 :: B.ByteString -> Int
+part1V6 xs =
+            let
+                start = fromMaybe (error "no S") $ B.elemIndex 'S' xs
+                lineWidth = 1 + fromMaybe (error "no newline") (B.elemIndex '\n' xs)
+                l = B.length xs
+            in part1V6' start lineWidth l xs
+
+part1 = part1V6
 
 
 part2V1' :: Position -> Table TachionManifoldEntity -> Int
