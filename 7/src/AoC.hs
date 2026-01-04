@@ -403,6 +403,7 @@ part1V3 xs =
 
 -- |
 -- This is based on the classic DFS algorithm for graphs as adjacency lists in Haskell as explained by ChatGPT.
+-- After 7 minutes was not done
 part1V4' :: Position -> Table TachionManifoldEntity -> [Position]
 part1V4' start t =
     let
