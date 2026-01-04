@@ -119,8 +119,7 @@ tParsed = case parse parser "input" tString of
 
 -- >>> tParsed
 
-t2 = head $ sortOn snd $ ((\(x:y:[]) -> ((x,y),distanceInt x y) ) <$> choose 2 tParsed)
--- >>> t2
+-- >>> head $ sortOn snd $ ((\(x:y:[]) -> ((x,y),distanceInt x y) ) <$> choose 2 tParsed)
 -- (((162,817,812),(425,690,689)),100427)
 
 -- the two junction boxes which are closest together are 162,817,812 and 425,690,689.
