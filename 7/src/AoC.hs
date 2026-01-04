@@ -46,33 +46,34 @@ module AoC
     , tableToTableStore
     ) where
 
-import Data.List
-import Data.Text (Text)
-import qualified Data.Text as T
-import Data.Void (Void)
+
 import Debug.Trace (trace)
-import GHC.Natural (Natural)
 import Text.Megaparsec
 import Text.Megaparsec.Char (digitChar, char, newline)
 import Control.Error
-
-import Data.Map (Map)
-import qualified Data.Map as Map
-import Data.Set (Set)
-import qualified Data.Set as Set
-
 import Control.Comonad
 import Control.Comonad.Store
 import qualified Data.MemoCombinators as Memo
 import Data.MemoCombinators (Memo)
 import Control.Lens
-import Data.Maybe (catMaybes, fromMaybe)
 import Control.Comonad.Env (EnvT(..), ask, runEnvT)
 import Control.Monad (guard)
-import GHC.IO.Encoding (BufferCodec(encode))
-import Data.Bits (Bits(xor))
 
+import Data.Void (Void)
+import Data.Maybe
+import GHC.Natural (Natural)
+
+import Data.List
+import Data.Text (Text)
+import qualified Data.Text as T
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
+import Data.Set (Set)
+import qualified Data.Set as Set
 import qualified Data.ByteString.Char8 as B
+
+
+
 
 
 -- COMONAD  STUFF
@@ -457,6 +458,10 @@ part2V1 xs =
                 start = fromMaybe (error "no S") $ elemIndex 'S' xs
             in  part2V1' (start,0) table
 
+-- |
+-- In this approach I use a bytestring to store the table, therefore the lookups are O(1). 
+-- Then I use MemoCombinators to memoize the function, since once a ray hits a certain path it will cover all the same paths that another ray which 
+-- has already hit that spliiter. https://hackage.haskell.org/package/data-memocombinators-0.5.1/
 part2V2' :: Int -> Int -> Int -> B.ByteString -> Int
 part2V2' start lineWidth l xs = go start where
     go = Memo.integral go'
