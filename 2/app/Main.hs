@@ -66,17 +66,14 @@ part2 was not hard, the first try I thought the pattern couldn't be of 1 digit l
 
 type Parser = Parsec Void Text
 
-pNatural :: Parser Natural
-pNatural = read <$> some digitChar
-
-pInt :: Parser Int
-pInt = read <$> some digitChar
+pNumber :: forall a. Read a => Parser a
+pNumber = read <$> some digitChar
 
 pRange :: Parser (Natural, Natural)
 pRange = do
-    x <- pNatural
+    x <- pNumber
     char '-'
-    y <- pNatural
+    y <- pNumber
     return (x,y)
 
 pList :: Parser [(Natural, Natural)]

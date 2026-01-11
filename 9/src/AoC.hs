@@ -77,7 +77,7 @@ type Parser = Parsec Void Text
 type V2 = (Int,Int)
 type ParsedType = [V2]
 
-pNumber :: Read a => Parser a
+pNumber :: forall a. Read a => Parser a
 pNumber = read <$> some digitChar
 
 pNumberLine :: Parser V2

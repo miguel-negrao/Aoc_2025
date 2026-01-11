@@ -41,11 +41,8 @@ data Movement = Movement Direction Natural deriving Show
 
 type Parser = Parsec Void Text
 
-pNatural :: Parser Natural
-pNatural = read <$> some digitChar 
-
-pInt :: Parser Int
-pInt = read <$> some digitChar
+pNumber :: forall a. Read a => Parser a
+pNumber = read <$> some digitChar
 
 pDirection :: Parser Direction
 pDirection = (L <$ char 'L') <|> (R <$ char 'R') 
@@ -53,7 +50,7 @@ pDirection = (L <$ char 'L') <|> (R <$ char 'R')
 pMovement :: Parser Movement
 pMovement = do
     direction <- pDirection
-    value <- pNatural
+    value <- pNumber
     newline
     return $ Movement direction value
 

@@ -5,6 +5,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE TypeApplications #-}
 {- HLINT ignore "Unused LANGUAGE pragma" -}
 
 {--
@@ -73,13 +74,14 @@ data Homework = Homework [[Natural]] [(Operation,Int)] deriving (Show, Eq, Read)
 
 type ParsedType = Homework
 
-pNatural :: Parser Natural
-pNatural = read <$> some digitChar
+
+pNumber :: forall a. Read a => Parser a
+pNumber = read <$> some digitChar
 
 pNumberLine :: Parser [Natural]
 pNumberLine = do
     hspace
-    numbers <- pNatural `sepEndBy` hspace1
+    numbers <- pNumber @Natural `sepEndBy` hspace1
     newline
     return numbers
 

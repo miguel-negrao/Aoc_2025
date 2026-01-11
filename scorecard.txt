@@ -2,3 +2,11 @@
 02 Y Y
 03 Y Y
 04 Y Y
+05 Y Y
+06 Y Y
+07 Y Y
+08 Y Y
+09 Y N
+10 N N 
+11 N N
+12 N N
