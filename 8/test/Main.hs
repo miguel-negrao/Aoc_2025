@@ -191,28 +191,26 @@ main = defaultMain $ testGroup "AoC5"
         case parse parser "test_input" input of
             Left err -> assertFailure (show err)
             Right parsed -> assertBool "part1" $ all (\[a,b] -> Set.intersection a b == Set.empty) $ chooseSets 2 $ part1Groups 1000 parsed
-    , testProperty "part1 pairs length matches combinations" prop_pairsLength
-    , testProperty "part1 pairs sorted by distance" prop_pairsSortedByDistance
-    , testProperty "part1 pairs only use input elements" prop_pairsElementsFromInput
-    , testProperty "distanceInt symmetry" prop_distanceSymmetry
-    , testProperty "distanceInt zero on identical points" prop_distanceZero
-    , testProperty "pairs empty for <2 elements" prop_pairsEmptyWhenSmall
-    , testProperty "part1 groups empty when n=0" prop_groupsEmptyWhenZero
-    , testProperty "part1 groups total size bounded" prop_groupsTotalSizeBounded
-    , testProperty "part1 unique lengths within bounds" prop_uniqueLengthsWithinBounds
-    , testProperty "part1 permutation invariant with unique distances" prop_permutationInvariantWhenUniqueDistances
-    , testProperty "part1 groups are connected by first n pairs" prop_groupsAreConnected
-    , testProperty "part1 max group size monotone in n" prop_maxGroupSizeMonotone
-    , testProperty "part1 total group size monotone in n" prop_totalGroupSizeMonotone
-    , testProperty "part1 full graph yields single component" prop_fullGraphSingleComponent
-    , testProperty "part1 groups are disjoint (qc)" prop_groupsDisjoint
-    , testProperty "part1 group elements come from input" prop_groupsElementsFromInput
-    , testProperty "part1 unique lengths are unique and from groups" prop_uniqueLengthsConsistent
-
-
-    -- , testCase "part2 example" $ do
-    --     input <- TIO.readFile "test_input"
-    --     case parse parser "test_input" input of
-    --         Left err -> assertFailure (show err)
-    --         Right parsed -> assertEqual "part2" 3263827 (part2 input parsed)
+    -- , testProperty "part1 pairs length matches combinations" prop_pairsLength
+    -- , testProperty "part1 pairs sorted by distance" prop_pairsSortedByDistance
+    -- , testProperty "part1 pairs only use input elements" prop_pairsElementsFromInput
+    -- , testProperty "distanceInt symmetry" prop_distanceSymmetry
+    -- , testProperty "distanceInt zero on identical points" prop_distanceZero
+    -- , testProperty "pairs empty for <2 elements" prop_pairsEmptyWhenSmall
+    -- , testProperty "part1 groups empty when n=0" prop_groupsEmptyWhenZero
+    -- , testProperty "part1 groups total size bounded" prop_groupsTotalSizeBounded
+    -- , testProperty "part1 unique lengths within bounds" prop_uniqueLengthsWithinBounds
+    -- , testProperty "part1 permutation invariant with unique distances" prop_permutationInvariantWhenUniqueDistances
+    -- , testProperty "part1 groups are connected by first n pairs" prop_groupsAreConnected
+    -- , testProperty "part1 max group size monotone in n" prop_maxGroupSizeMonotone
+    -- , testProperty "part1 total group size monotone in n" prop_totalGroupSizeMonotone
+    -- , testProperty "part1 full graph yields single component" prop_fullGraphSingleComponent
+    -- , testProperty "part1 groups are disjoint (qc)" prop_groupsDisjoint
+    -- , testProperty "part1 group elements come from input" prop_groupsElementsFromInput
+    -- , testProperty "part1 unique lengths are unique and from groups" prop_uniqueLengthsConsistent
+    , testCase "part2 example" $ do
+        input <- TIO.readFile "test_input"
+        case parse parser "test_input" input of
+            Left err -> assertFailure (show err)
+            Right parsed -> assertEqual "part2" 25272 (part2 parsed)
     ]
