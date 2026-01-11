@@ -19,7 +19,7 @@ main = do
         Right parsed ->
             defaultMain
                 [ bench "part1 without parsing" $ nf part1 parsed
-                , bench "part2 without parsing" $ nf part2 parsed
+                --, bench "part2 without parsing" $ nf part2 parsed
                 , bench "part1 with parsing" $ nf (parseAndRun part1) input
-                , bench "part2 with parsing" $ nf (parseAndRun part2) input
+                --, bench "part2 with parsing" $ nf (parseAndRun part2) input
                 ]
