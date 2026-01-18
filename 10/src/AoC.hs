@@ -8,6 +8,8 @@
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ViewPatterns #-}
+
 {- HLINT ignore "Unused LANGUAGE pragma" -}
 
 {--
@@ -34,6 +36,9 @@ module AoC
     ) where
 
 import Data.List
+import Data.Sequence (Seq)
+import qualified Data.Sequence as Seq
+
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Void (Void)
@@ -45,8 +50,6 @@ import Control.Error
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text.IO as TIO
-
--- comonad stuff
 import Control.Comonad
 import Control.Comonad.Store
 import qualified Data.MemoCombinators as Memo
@@ -105,6 +108,27 @@ parser = some $ do
   buttonWiringSchematics <- between (char '(') (char ')') (pNumber @Int `sepBy` char ',') `sepEndBy` char ' '
   joltageRequirements <- between (char '{') (char '}') $ (pNumber @Int) `sepBy` char ','
   return $ Machine {..}
+
+data Tree a = Leaf a | Tree a (Seq (Tree a)) deriving (Show, Eq)
+
+bfsStopAt :: (a -> Bool) -> Tree a -> Maybe a
+bfsStopAt pred tree = go pred (Seq.singleton tree) where
+  go :: (a -> Bool) -> Seq (Tree a) -> Maybe a
+  go pred (Seq.viewl -> Seq.EmptyL) = Nothing
+  go pred (Seq.viewl -> (Leaf a) Seq.:< xs)
+    | pred a = Just a
+    | otherwise = go pred xs
+  go pred (Seq.viewl -> (Tree a ys) Seq.:< xs)
+    | pred a    = Just a
+    | otherwise = go pred (xs Seq.>< ys) 
+
+-- walkWithPath pred tree = go pred tree [] where
+--   go pred (Leaf a) [] =
+--   go pred (Tree a ys) [] =
+--   go pred (Leaf a) (x:xs) =
+--   go pred (Tree a ys) (x:xs) =
+
+
 
 part1 :: ParsedType -> Int
 part1 xs = undefined
