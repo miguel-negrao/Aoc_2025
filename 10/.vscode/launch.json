@@ -17,10 +17,10 @@
         {
             "type": "haskell-debugger",
             "request": "launch",
-            "name": "Haskell Debugger test2",
+            "name": "Haskell Debugger treeT2",
             "projectRoot": "${workspaceFolder}",
             "entryFile": "src/AoC.hs",
-            "entryPoint": "test2",
+            "entryPoint": "treeT2",
             "entryArgs": [],
             "extraGhcArgs": []
         },

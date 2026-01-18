@@ -16,7 +16,7 @@
 part1
 time: 
 attempts:
-used chatgpt: 
+used chatgpt: yes: get documentation of Seq quickly;
 notes: knowing sepEndBy and between, parsing becomes easy.
 
 part2
@@ -56,7 +56,6 @@ import qualified Data.MemoCombinators as Memo
 import Data.MemoCombinators (Memo)
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Control.Lens
 import Data.Maybe (catMaybes, fromMaybe)
 import Control.Comonad.Env (EnvT(..), ask)
 import Control.Monad (guard)
@@ -111,6 +110,8 @@ parser = some $ do
 
 data Tree a = Leaf a | Tree a (Seq (Tree a)) deriving (Show, Eq)
 
+-- |
+-- To see the execution of the function in the Haskell debugger I set breakpoints in the Leaf a and Tree a cases.
 bfsStopAt :: (a -> Bool) -> Tree a -> Maybe a
 bfsStopAt pred tree = go pred (Seq.singleton tree) where
   go :: (a -> Bool) -> Seq (Tree a) -> Maybe a
@@ -121,6 +122,13 @@ bfsStopAt pred tree = go pred (Seq.singleton tree) where
   go pred (Seq.viewl -> (Tree a ys) Seq.:< xs)
     | pred a    = Just a
     | otherwise = go pred (xs Seq.>< ys) 
+
+treeT1 = Tree 1 (Seq.fromList [Tree 2 $ Seq.fromList [Leaf 3, Leaf 4], Tree 5 $ Seq.fromList [Leaf 6, Leaf 7, Leaf 8, Leaf 99]])
+
+treeT2 = bfsStopAt (> 8) treeT1
+
+-- >>> treeT2
+-- Just 99
 
 -- walkWithPath pred tree = go pred tree [] where
 --   go pred (Leaf a) [] =
