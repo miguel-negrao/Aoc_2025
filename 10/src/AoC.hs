@@ -17,7 +17,7 @@ part1
 time: 
 attempts:
 used chatgpt: yes: get documentation of Seq quickly;
-notes: knowing sepEndBy and between, parsing becomes easy.
+notes: knowing sepEndBy and between, parsing becomes easy. Initial idea is to form a Tree of choices of button pressing and then travel the tree in breadth-first keeping track of the node traveled to get to each node, and stop once the sequence gives the necessary result. 
 
 part2
 time:
@@ -126,6 +126,17 @@ bfsStopAt pred tree = go pred (Seq.singleton tree) where
 treeT1 = Tree 1 (Seq.fromList [Tree 2 $ Seq.fromList [Leaf 3, Leaf 4], Tree 5 $ Seq.fromList [Leaf 6, Leaf 7, Leaf 8, Leaf 99]])
 
 treeT2 = bfsStopAt (> 8) treeT1
+
+bfsStopAtPath :: (a -> Bool) -> Tree a -> Maybe [a]
+bfsStopAtPath pred tree = go pred (Seq.singleton tree) where
+  go :: (a -> Bool) -> Seq ([a], Tree a) -> Maybe [a]
+  go pred (Seq.viewl -> Seq.EmptyL) = Nothing
+  go pred (Seq.viewl -> (Leaf a) Seq.:< xs)
+    | pred a = Just a
+    | otherwise = go pred xs
+  go pred (Seq.viewl -> (Tree a ys) Seq.:< xs)
+    | pred a    = Just a
+    | otherwise = go pred (xs Seq.>< ys)
 
 -- >>> treeT2
 -- Just 99
