@@ -169,7 +169,7 @@ part1 xs = trace ("smallestSets = " <> show smallestSets) (sum smallestSets) whe
       Just ys -> Seq.length ys
       Nothing -> error "part1 cannot find solution"
     where 
-      a = bfsStopAtPath 10000 pred $ part1BuildList buttons
+      a = bfsStopAtPath 100 pred $ part1BuildList buttons
       startPattern = Seq.replicate (length pattern) False
       seqPattern = Seq.fromList pattern
       pred xs = applyButtons startPattern xs == seqPattern
