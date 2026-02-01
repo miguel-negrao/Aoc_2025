@@ -127,23 +127,23 @@ treeT1 = Tree 1 (Seq.fromList [Tree 2 $ Seq.fromList [Leaf 3, Leaf 4], Tree 5 $ 
 
 treeT2 = bfsStopAt (> 8) treeT1
 
-bfsStopAtPath :: (a -> Bool) -> Tree a -> Maybe (Seq a)
+bfsStopAtPath :: ((Seq a) -> Bool) -> Tree a -> Maybe (Seq a)
 bfsStopAtPath pred tree = go pred (Seq.Empty, Seq.singleton tree) where
-  go :: (a -> Bool) -> (Seq a, Seq (Tree a)) -> Maybe (Seq a)
+  go :: (Seq a -> Bool) -> (Seq a, Seq (Tree a)) -> Maybe (Seq a)
   -- No more nodes to process, stop
   go pred (_, Seq.viewl -> Seq.EmptyL) = Nothing
   go pred (zs, Seq.viewl -> (Leaf a) Seq.:< xs)
     -- found element, stop
-    | pred a = Just $ zs Seq.|> a
+    | pred (zs Seq.|> a) = Just $ zs Seq.|> a
     -- go on to next elements in list to process
     | otherwise = go pred (zs, xs)
   go pred (zs, Seq.viewl -> (Tree a ys) Seq.:< xs)
     -- found element, stop
-    | pred a    = Just $ zs Seq.|> a
+    | pred (zs Seq.|> a) = Just $ zs Seq.|> a
     -- add all branches of this tree to the list of nodes to process
     | otherwise = go pred (zs Seq.|> a, xs Seq.>< ys)
 
-t3 = bfsStopAtPath (> 8) treeT1
+-- t3 = bfsStopAtPath (> 8) treeT1
 
 -- I love lazy data structures !!
 part1BuildList :: [[a]] -> Tree [a]
@@ -151,7 +151,14 @@ part1BuildList xs = Tree [] $ go $ Seq.fromList xs where
   go xs = fmap f xs where
     f x = Tree x $ go xs
 
+applyButtons :: [Int] -> Seq [Int] -> [Int]
+applyButtons xs ys = foldr f xs ys where
+  f ys' xs' = foldr g xs' ys'
+  g n xs'' = undefined
 
+-- would have to know the size? 
+histogram :: [Int] -> [Int]
+histogram = undefined
 
 -- >>> t3
 -- Just [99,5,2,1]
