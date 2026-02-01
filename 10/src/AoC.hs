@@ -163,7 +163,17 @@ applyButtons xs ys = foldr f xs (concat $ toList ys) where
 -- e agora era para ter todos ligados ?
 
 part1 :: ParsedType -> Int
-part1 xs = undefined
+part1 xs = trace ("smallestSets = " <> show smallestSets) (sum smallestSets) where
+  smallestSets = fmap f xs
+  f (Machine pattern buttons joltages) = case a of
+      Just ys -> Seq.length ys
+      Nothing -> error "part1 cannot find solution"
+    where 
+      a = bfsStopAtPath 10000 pred $ part1BuildList buttons
+      startPattern = Seq.replicate (length pattern) False
+      seqPattern = Seq.fromList pattern
+      pred xs = applyButtons startPattern xs == seqPattern
+
 
 part2 = undefined
 
