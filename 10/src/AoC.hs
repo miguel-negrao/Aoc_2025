@@ -60,7 +60,7 @@ import Data.Maybe (catMaybes, fromMaybe)
 import Control.Comonad.Env (EnvT(..), ask)
 import Control.Monad (guard)
 import Control.Comonad.Trans.Env (runEnvT)
-import qualified Data.Foldable as Set
+import Data.Foldable
 import Data.Function (fix)
 import Text.Megaparsec.Debug
 --import Linear.V3
@@ -127,23 +127,28 @@ treeT1 = Tree 1 (Seq.fromList [Tree 2 $ Seq.fromList [Leaf 3, Leaf 4], Tree 5 $ 
 
 treeT2 = bfsStopAt (> 8) treeT1
 
-bfsStopAtPath :: ((Seq a) -> Bool) -> Tree a -> Maybe (Seq a)
-bfsStopAtPath pred tree = go pred (Seq.Empty, Seq.singleton tree) where
-  go :: (Seq a -> Bool) -> (Seq a, Seq (Tree a)) -> Maybe (Seq a)
+bfsStopAtPath :: Int -> ((Seq a) -> Bool) -> Tree a -> Maybe (Seq a)
+bfsStopAtPath max pred tree = go 0 pred (Seq.Empty, Seq.singleton tree) where
+  go :: Int -> (Seq a -> Bool) -> (Seq a, Seq (Tree a)) -> Maybe (Seq a)
   -- No more nodes to process, stop
-  go pred (_, Seq.viewl -> Seq.EmptyL) = Nothing
-  go pred (zs, Seq.viewl -> (Leaf a) Seq.:< xs)
+  go _ pred (_, Seq.viewl -> Seq.EmptyL) = Nothing
+  go n pred (zs, Seq.viewl -> (Leaf a) Seq.:< xs)
+    | n > max = Nothing
     -- found element, stop
     | pred (zs Seq.|> a) = Just $ zs Seq.|> a
     -- go on to next elements in list to process
-    | otherwise = go pred (zs, xs)
-  go pred (zs, Seq.viewl -> (Tree a ys) Seq.:< xs)
+    | otherwise = go (n + 1) pred (zs, xs)
+  go n pred (zs, Seq.viewl -> (Tree a ys) Seq.:< xs)
+    | n > max = Nothing
     -- found element, stop
     | pred (zs Seq.|> a) = Just $ zs Seq.|> a
     -- add all branches of this tree to the list of nodes to process
-    | otherwise = go pred (zs Seq.|> a, xs Seq.>< ys)
+    | otherwise = go (n + 1) pred (zs Seq.|> a, xs Seq.>< ys)
 
--- t3 = bfsStopAtPath (> 8) treeT1
+t3 = bfsStopAtPath 4 (\xs -> length xs == 3) treeT1
+
+
+-- >>> t3
 
 -- I love lazy data structures !!
 part1BuildList :: [[a]] -> Tree [a]
@@ -151,28 +156,11 @@ part1BuildList xs = Tree [] $ go $ Seq.fromList xs where
   go xs = fmap f xs where
     f x = Tree x $ go xs
 
-applyButtons :: [Int] -> Seq [Int] -> [Int]
-applyButtons xs ys = foldr f xs ys where
-  f ys' xs' = foldr g xs' ys'
-  g n xs'' = undefined
+applyButtons :: Seq Bool -> Seq [Int] -> Seq Bool
+applyButtons xs ys = foldr f xs (concat $ toList ys) where
+  f = Seq.adjust' not
 
--- would have to know the size? 
-histogram :: [Int] -> [Int]
-histogram = undefined
-
--- >>> t3
--- Just [99,5,2,1]
-
--- >>> treeT2
--- Just 99
-
--- walkWithPath pred tree = go pred tree [] where
---   go pred (Leaf a) [] =
---   go pred (Tree a ys) [] =
---   go pred (Leaf a) (x:xs) =
---   go pred (Tree a ys) (x:xs) =
-
-
+-- e agora era para ter todos ligados ?
 
 part1 :: ParsedType -> Int
 part1 xs = undefined
