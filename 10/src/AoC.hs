@@ -77,10 +77,9 @@ instance Show a => Show (OnePerLine a) where
   show (OnePerLine xs) = unlines (map show xs)
 
 type Parser = Parsec Void Text
-
-data LightStatus = On | Off deriving (Show, Eq)
+type LightStatus = Bool
 data Machine = Machine {
-  indicatorLightDiagram :: [LightStatus],
+  indicatorLightDiagram :: [Bool],
   buttonWiringSchematics :: [[Int]],
   joltageRequirements :: [Int]
 } deriving (Show, Eq)
@@ -96,9 +95,9 @@ type ParsedType = [Machine]
 pNumber :: forall a. Read a => Parser a
 pNumber = read <$> some digitChar
 
-charToLightStatus :: Char -> LightStatus
-charToLightStatus '.' = Off
-charToLightStatus '#' = On
+charToLightStatus :: Char -> Bool
+charToLightStatus '.' = False
+charToLightStatus '#' = True
 
 parser :: Parser ParsedType
 parser = some $ do
@@ -106,6 +105,7 @@ parser = some $ do
   char ' '
   buttonWiringSchematics <- between (char '(') (char ')') (pNumber @Int `sepBy` char ',') `sepEndBy` char ' '
   joltageRequirements <- between (char '{') (char '}') $ (pNumber @Int) `sepBy` char ','
+  newline
   return $ Machine {..}
 
 data Tree a = Leaf a | Tree a (Seq (Tree a)) deriving (Show, Eq)
@@ -127,16 +127,34 @@ treeT1 = Tree 1 (Seq.fromList [Tree 2 $ Seq.fromList [Leaf 3, Leaf 4], Tree 5 $ 
 
 treeT2 = bfsStopAt (> 8) treeT1
 
-bfsStopAtPath :: (a -> Bool) -> Tree a -> Maybe [a]
-bfsStopAtPath pred tree = go pred (Seq.singleton tree) where
-  go :: (a -> Bool) -> Seq ([a], Tree a) -> Maybe [a]
-  go pred (Seq.viewl -> Seq.EmptyL) = Nothing
-  go pred (Seq.viewl -> (Leaf a) Seq.:< xs)
-    | pred a = Just a
-    | otherwise = go pred xs
-  go pred (Seq.viewl -> (Tree a ys) Seq.:< xs)
-    | pred a    = Just a
-    | otherwise = go pred (xs Seq.>< ys)
+bfsStopAtPath :: (a -> Bool) -> Tree a -> Maybe (Seq a)
+bfsStopAtPath pred tree = go pred (Seq.Empty, Seq.singleton tree) where
+  go :: (a -> Bool) -> (Seq a, Seq (Tree a)) -> Maybe (Seq a)
+  -- No more nodes to process, stop
+  go pred (_, Seq.viewl -> Seq.EmptyL) = Nothing
+  go pred (zs, Seq.viewl -> (Leaf a) Seq.:< xs)
+    -- found element, stop
+    | pred a = Just $ zs Seq.|> a
+    -- go on to next elements in list to process
+    | otherwise = go pred (zs, xs)
+  go pred (zs, Seq.viewl -> (Tree a ys) Seq.:< xs)
+    -- found element, stop
+    | pred a    = Just $ zs Seq.|> a
+    -- add all branches of this tree to the list of nodes to process
+    | otherwise = go pred (zs Seq.|> a, xs Seq.>< ys)
+
+t3 = bfsStopAtPath (> 8) treeT1
+
+-- I love lazy data structures !!
+part1BuildList :: [[a]] -> Tree [a]
+part1BuildList xs = Tree [] $ go $ Seq.fromList xs where
+  go xs = fmap f xs where
+    f x = Tree x $ go xs
+
+
+
+-- >>> t3
+-- Just [99,5,2,1]
 
 -- >>> treeT2
 -- Just 99
