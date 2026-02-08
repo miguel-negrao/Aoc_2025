@@ -166,7 +166,7 @@ processMachineV1 (Machine pattern buttons joltages) = case a of
       Just ys -> trace ("ys = " <> show ys) $ Seq.length ys - 1
       Nothing -> error "part1 cannot find solution"
     where 
-      a = bfsStopAtPath 100 pred $ part1BuildList buttons
+      a = bfsStopAtPath 100000 pred $ part1BuildList buttons
       startPattern = Seq.replicate (length pattern) False
       seqPattern = Seq.fromList pattern
       pred xs = applyButtons startPattern xs == seqPattern

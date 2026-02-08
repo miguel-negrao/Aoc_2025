@@ -58,7 +58,7 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes, fromMaybe)
 import Control.Comonad.Env (EnvT(..), ask)
-import Control.Monad (guard)
+import Control.Monad
 import Control.Comonad.Trans.Env (runEnvT)
 import Data.Foldable
 import Data.Function (fix)
@@ -103,7 +103,7 @@ pNumber :: forall a. Read a => Parser a
 pNumber = read <$> some digitChar
 
 pLabel :: Parser String
-pLabel = sequence $ replicate 3 alphaNumChar
+pLabel = Control.Monad.replicateM 3 alphaNumChar
 
 pLine :: Parser (String, [String])
 pLine = do
@@ -116,11 +116,14 @@ pLine = do
 parser :: Parser ParsedType
 parser = Map.fromList <$> some pLine
 
--- you -> 0
--- out -> 1
+type Graph = Map Int [Int]
+
+you = 0
+out = 1
+
 convertGraph :: Map String [String] -> Map Int [Int]
 convertGraph map = Map.fromList xs where
-  allStrings = nub $ Map.keys map ++ concat (Map.elems map) 
+  allStrings = nub $ Map.keys map ++ concat (Map.elems map)
   important = ["you", "out"]
   allStrings' = important ++ (allStrings \\ important)
   ys = Map.toList map
@@ -128,15 +131,20 @@ convertGraph map = Map.fromList xs where
   f (a, zs) = (indexOf a, fmap indexOf zs)
   indexOf x = fromMaybe (error "elem not in array") $ elemIndex x allStrings'
 
+lookupGraph :: Int -> Graph -> [Int]
+lookupGraph elem g = fromMaybe [] (Map.lookup elem g)
 
-dft :: (Eq a) => (a -> b -> b) -> b -> a -> Map a [a] -> b
-dft f b a map = go a b [] where
-  go a b seen
-    | elem a seen = b
-    | otherwise = fromMaybe b $ foldr f b <$> Map.lookup a map 
+dft :: Int -> Graph -> Int
+dft start g = go 0 [] where
+  go :: Int -> [Int] -> Int
+  go 1 _ = 1
+  go element seenAlready
+      | element `elem` seenAlready = 0
+      | otherwise = sum $ fmap f (lookupGraph element g) where
+          f newElement = go newElement (element:seenAlready)
 
 part1 :: ParsedType -> Int
-part1 xs = undefined
+part1 = dft you . convertGraph
 
 part2 :: ParsedType -> Int
 part2 = undefined
@@ -154,37 +162,5 @@ tParsed = case parse parser "input" tString of
     Right x -> x
     Left _ -> error "not parsed"
 
-
-
--- >>> OnePerLine tParsed
--- not parsed
-
--- >>> OnePerLine $ choose 2 tParsed
--- [(7,1),(11,1)]
--- [(7,1),(11,7)]
--- [(7,1),(9,7)]
--- [(7,1),(9,5)]
--- [(7,1),(2,5)]
--- [(7,1),(2,3)]
--- [(7,1),(7,3)]
--- [(11,1),(11,7)]
--- [(11,1),(9,7)]
--- [(11,1),(9,5)]
--- [(11,1),(2,5)]
--- [(11,1),(2,3)]
--- [(11,1),(7,3)]
--- [(11,7),(9,7)]
--- [(11,7),(9,5)]
--- [(11,7),(2,5)]
--- [(11,7),(2,3)]
--- [(11,7),(7,3)]
--- [(9,7),(9,5)]
--- [(9,7),(2,5)]
--- [(9,7),(2,3)]
--- [(9,7),(7,3)]
--- [(9,5),(2,5)]
--- [(9,5),(2,3)]
--- [(9,5),(7,3)]
--- [(2,5),(2,3)]
--- [(2,5),(7,3)]
--- [(2,3),(7,3)]
+-- >>> tParsed
+-- fromList [("aaa",["you","hhh"]),("bbb",["ddd","eee"]),("ccc",["ddd","eee","fff"]),("ddd",["ggg"]),("eee",["out"]),("fff",["out"]),("ggg",["out"]),("hhh",["ccc","fff","iii"]),("iii",["out"]),("you",["bbb","ccc"])]
