@@ -116,8 +116,24 @@ pLine = do
 parser :: Parser ParsedType
 parser = Map.fromList <$> some pLine
 
+-- you -> 0
+-- out -> 1
 convertGraph :: Map String [String] -> Map Int [Int]
-convertGraph = _
+convertGraph map = Map.fromList xs where
+  allStrings = nub $ Map.keys map ++ concat (Map.elems map) 
+  important = ["you", "out"]
+  allStrings' = important ++ (allStrings \\ important)
+  ys = Map.toList map
+  xs = fmap f ys
+  f (a, zs) = (indexOf a, fmap indexOf zs)
+  indexOf x = fromMaybe (error "elem not in array") $ elemIndex x allStrings'
+
+
+dft :: (Eq a) => (a -> b -> b) -> b -> a -> Map a [a] -> b
+dft f b a map = go a b [] where
+  go a b seen
+    | elem a seen = b
+    | otherwise = fromMaybe b $ foldr f b <$> Map.lookup a map 
 
 part1 :: ParsedType -> Int
 part1 xs = undefined
