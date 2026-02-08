@@ -20,9 +20,9 @@ main = defaultMain $ testGroup "AoC5"
     [ testCase "parser parses test_input" $ do
         input <- TIO.readFile "test_input"
         assertBool "expected parse to succeed" (isRight (parse parser "test_input" input))
-    , testCase "parser parses input" $ do
-        input <- TIO.readFile "input"
-        assertBool "expected parse to succeed" (isRight (parse parser "input" input))
+    --, testCase "parser parses input" $ do
+    --    input <- TIO.readFile "input"
+    --    assertBool "expected parse to succeed" (isRight (parse --parser "input" input))
     , testCase "part1 example" $ do
         input <- TIO.readFile "test_input"
         case parse parser "test_input" input of

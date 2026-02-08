@@ -127,23 +127,23 @@ treeT1 = Tree 1 (Seq.fromList [Tree 2 $ Seq.fromList [Leaf 3, Leaf 4], Tree 5 $ 
 
 treeT2 = bfsStopAt (> 8) treeT1
 
-bfsStopAtPath :: Int -> ((Seq a) -> Bool) -> Tree a -> Maybe (Seq a)
-bfsStopAtPath max pred tree = go 0 pred (Seq.Empty, Seq.singleton tree) where
-  go :: Int -> (Seq a -> Bool) -> (Seq a, Seq (Tree a)) -> Maybe (Seq a)
+bfsStopAtPath :: forall a. Show a => Int -> ((Seq a) -> Bool) -> Tree a -> Maybe (Seq a)
+bfsStopAtPath max pred tree = go 0 pred $ Seq.singleton (Seq.Empty, tree) where
+  go :: Int -> (Seq a -> Bool) -> Seq (Seq a, Tree a) -> Maybe (Seq a)
   -- No more nodes to process, stop
-  go _ pred (_, Seq.viewl -> Seq.EmptyL) = Nothing
-  go n pred (zs, Seq.viewl -> (Leaf a) Seq.:< xs)
+  go _ pred (Seq.viewl -> Seq.EmptyL) = Nothing
+  go n pred (Seq.viewl -> (zs, Leaf a) Seq.:< xs)
     | n > max = Nothing
     -- found element, stop
     | pred (zs Seq.|> a) = Just $ zs Seq.|> a
     -- go on to next elements in list to process
-    | otherwise = go (n + 1) pred (zs, xs)
-  go n pred (zs, Seq.viewl -> (Tree a ys) Seq.:< xs)
+    | otherwise = go (n + 1) pred xs
+  go n pred (Seq.viewl -> (zs, Tree a ys) Seq.:< xs)
     | n > max = Nothing
     -- found element, stop
     | pred (zs Seq.|> a) = Just $ zs Seq.|> a
     -- add all branches of this tree to the list of nodes to process
-    | otherwise = go (n + 1) pred (zs Seq.|> a, xs Seq.>< ys)
+    | otherwise = go (n + 1) pred $ xs Seq.>< (fmap (\b -> (zs Seq.|> a, b)) ys)
 
 t3 = bfsStopAtPath 4 (\xs -> length xs == 3) treeT1
 
@@ -162,11 +162,8 @@ applyButtons xs ys = foldr f xs (concat $ toList ys) where
 
 -- e agora era para ter todos ligados ?
 
-part1 :: ParsedType -> Int
-part1 xs = trace ("smallestSets = " <> show smallestSets) (sum smallestSets) where
-  smallestSets = fmap f xs
-  f (Machine pattern buttons joltages) = case a of
-      Just ys -> Seq.length ys
+processMachineV1 (Machine pattern buttons joltages) = case a of
+      Just ys -> trace ("ys = " <> show ys) $ Seq.length ys - 1
       Nothing -> error "part1 cannot find solution"
     where 
       a = bfsStopAtPath 100 pred $ part1BuildList buttons
@@ -174,6 +171,10 @@ part1 xs = trace ("smallestSets = " <> show smallestSets) (sum smallestSets) whe
       seqPattern = Seq.fromList pattern
       pred xs = applyButtons startPattern xs == seqPattern
 
+
+part1 :: ParsedType -> Int
+part1 xs = trace ("smallestSets = " <> show smallestSets) (sum smallestSets) where
+  smallestSets = fmap processMachineV1 xs
 
 part2 = undefined
 
