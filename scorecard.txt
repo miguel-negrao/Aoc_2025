@@ -7,6 +7,6 @@
 07 Y Y
 08 Y Y
 09 Y N
-10 N N 
+10 Y N 
 11 Y N
 12 N N
