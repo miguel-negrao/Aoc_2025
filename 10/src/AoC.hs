@@ -192,7 +192,7 @@ tParsed = case parse parser "input" tString of
     Right x -> x
     Left _ -> error "not parsed"
 
-
+tTest1 = part1 tParsed
 
 -- >>> OnePerLine tParsed
 -- not parsed
