@@ -25,18 +25,22 @@ attempts: 1
 used chatgpt: yes, to suggest a more efficient representation than IntMap. It suggested Vector (Vector Int).  I was stuck on taking to long, asked chatgpt for hint. She said "Even on an acyclic graph, enumerating/counting paths with plain DFS can take extremely long when many branches recombine, because the same subproblems get revisited many times." From there I assumed I needed memoization, and went to my usual solution with data-memocombinators.
 notes: initial attemp too slow.  Did a version with IntMap and another with Vector (Vector Int). After adding memoization IntMap is faster.
 
+Benchmark bench: RUNNING...
 All
-  part1 without parsing: OK
-    6.32 ms ± 545 μs
-  part2 without parsing: OK
-    9.68 ms ± 217 μs
-  part1 with parsing:    OK
-    7.67 ms ± 326 μs
-  part2 with parsing:    OK
-    11.8 ms ± 443 μs
+  part1 without parsing:           OK
+    6.10 ms ± 304 μs
+  part2 without parsing p2_intmap: OK
+    13.2 ms ± 1.1 ms
+  part2 without parsing p2_vector: OK
+    16.7 ms ± 1.4 ms
+  part1 with parsing:              OK
+    7.63 ms ± 567 μs
+  part2 with parsing p2_intmap:    OK
+    15.6 ms ± 117 μs
+  part2 with parsing p2_vector:    OK
+    22.5 ms ± 1.7 ms
 
-All 4 tests passed (2.32s)
-Benchmark bench: FINISH
+All 6 tests passed (5.47s)
 --}
 
 module AoC
@@ -44,6 +48,11 @@ module AoC
     , parser
     , part1
     , part2
+    , convertGraph2
+    , convertGraph2'
+    , dft2_1
+    , dft2_2
+    , svr
     , ParsedType
     ) where
 
