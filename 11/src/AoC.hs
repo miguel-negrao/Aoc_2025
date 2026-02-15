@@ -15,15 +15,15 @@
 {--
 part1
 time: 
-attempts:
+attempts: 1
 used chatgpt:
-notes: After reading seems to be about directed graphs. I believe the problem statement is already in the format Map a [a], where each vertice states to where it connects.
+notes: After reading seems to be about directed graphs. I believe the problem statement is already in the format Map a [a], where each vertice states to where it connects (adjacency list). Implemented a dfs algorithm, fairly easy. 
 
 part2
 time:
 attempts:
 used chatgpt: no
-notes:
+notes: initial attemp too slow.
 
 --}
 
@@ -67,6 +67,8 @@ import Text.Megaparsec.Debug
 --import Linear.Metric
 import Math.Combinat.Sets (combine, choose)
 import Data.Ord (Down(..))
+import Data.IntMap.Strict (IntMap)
+import qualified Data.IntMap.Strict as IntMap
 
 -- by ChatGPT
 newtype OnePerLine a = OnePerLine [a]
@@ -116,7 +118,7 @@ pLine = do
 parser :: Parser ParsedType
 parser = Map.fromList <$> some pLine
 
-type Graph = Map Int [Int]
+type Graph = IntMap [Int]
 
 you = 0
 out = 1
@@ -124,11 +126,12 @@ out = 1
 dac = 2
 
 fft = 3
+svr = 4
 
-convertGraph :: Map String [String] -> Map Int [Int]
-convertGraph map = Map.fromList xs where
+convertGraph :: Map String [String] -> IntMap [Int]
+convertGraph map = IntMap.fromList xs where
   allStrings = nub $ Map.keys map ++ concat (Map.elems map)
-  important = ["you", "out", "dac", "fft"]
+  important = ["you", "out", "dac", "fft", "svr"]
   allStrings' = important ++ (allStrings \\ important)
   ys = Map.toList map
   xs = fmap f ys
@@ -136,10 +139,13 @@ convertGraph map = Map.fromList xs where
   indexOf x = fromMaybe (error "elem not in array") $ elemIndex x allStrings'
 
 lookupGraph :: Int -> Graph -> [Int]
-lookupGraph elem g = fromMaybe [] (Map.lookup elem g)
+lookupGraph elem g = fromMaybe [] (IntMap.lookup elem g)
+
+lookupGraph' :: Int -> IntMap (Seq Int) -> Seq Int
+lookupGraph' elem g = fromMaybe Seq.empty (IntMap.lookup elem g)
 
 dft :: Int -> Graph -> Int
-dft start g = go 0 [] where
+dft start g = go start [] where
   go :: Int -> [Int] -> Int
   go 1 _ = 1
   go element seenAlready
@@ -151,19 +157,50 @@ part1 :: ParsedType -> Int
 part1 = dft you . convertGraph
 
 dft2 :: Int -> Graph -> Int
-dft2 start g = go 0 0 [] where
+dft2 start g = go start 0 [] where
   go :: Int -> Int -> [Int] -> Int
   go 1 n _ 
-    | n >= 2 = trace (show n) 1
-    | otherwise       = trace (show n) 0
+    | n >= 2 = 1
+    | otherwise = 0
   go element n seenAlready
-      | element `elem` seenAlready = 0
-      | otherwise = sum $ fmap f (lookupGraph element g) where
+      | element `elem` seenAlready = 0 -- trace ("seen already: " <> show element) 0
+      | otherwise = sum $ fmap f nodes where
+          nodes = lookupGraph element g
           f newElement = go newElement n' (element:seenAlready)
-          n' = if element `elem` [dac, fft] then trace ("found " <> show n) n + 1 else n
+          n' = if element == dac || element == fft then n + 1 else n -- trace ("found " <> show element) 
+
+dft2' :: Int -> Graph -> Int
+dft2' start g = go start 0 where
+  go :: Int -> Int -> Int
+  go 1 n 
+    | n >= 2 = 1
+    | otherwise = 0
+  go element n
+      | otherwise = sum $ fmap f nodes where
+          nodes = lookupGraph element g
+          f newElement = go newElement n'
+          n' = if element == dac || element == fft then n + 1 else n -- trace ("found " <> show element) 
+
+
+bft2 :: Int -> Graph -> Int
+bft2 start g = go (Seq.singleton (0,start)) 0 [] where
+  g' :: IntMap (Seq Int)
+  g' = fmap Seq.fromList g
+  go :: Seq (Int,Int) -> Int -> [Int] -> Int
+  go (Seq.viewl -> Seq.EmptyL) pathCount _ = pathCount 
+  go (Seq.viewl -> (n,x) Seq.:< xs) pathCount seen   
+    | x `elem` seen = go xs pathCount seen
+    | otherwise = go xs' pathCount' seen' where
+                    seen' = (x:seen)
+                    xs' = xs Seq.>< fmap h nodes
+                    h y = (n', y)
+                    nodes = lookupGraph' x g'
+                    n' = if x == dac || x == fft then n + 1 else n
+                    pathCount' = if x == out && n >= 2 then pathCount + 1 else pathCount
+  
 
 part2 :: ParsedType -> Int
-part2 = dft2 you . convertGraph
+part2 = bft2 svr . convertGraph
 
 -- Tests
 
@@ -187,9 +224,12 @@ tParsed2 = case parse parser "input" tString2 of
     Right x -> x
     Left _ -> error "not parsed"
 
--- >>> tParsed2
--- fromList [("aaa",["fft"]),("bbb",["tty"]),("ccc",["ddd","eee"]),("dac",["fff"]),("ddd",["hub"]),("eee",["dac"]),("fff",["ggg","hhh"]),("fft",["ccc"]),("ggg",["out"]),("hhh",["out"]),("hub",["fff"]),("svr",["aaa","bbb"]),("tty",["ccc"])]
+tConv2 = convertGraph tParsed2
 
+-- >>> tConv2
+-- fromList [(2,[10]),(3,[7]),(4,[5,6]),(5,[3]),(6,[14]),(7,[8,9]),(8,[13]),(9,[2]),(10,[11,12]),(11,[1]),(12,[1]),(13,[10]),(14,[7])]
 
--- >>> convertGraph tParsed2
--- fromList [(2,[9]),(3,[6]),(4,[3]),(5,[14]),(6,[7,8]),(7,[12]),(8,[2]),(9,[10,11]),(10,[1]),(11,[1]),(12,[9]),(13,[4,5]),(14,[6])]
+tTest2 = part2 tParsed2
+
+-- >>> tTest2
+-- 0

@@ -27,10 +27,10 @@
         {
             "type": "haskell-debugger",
             "request": "launch",
-            "name": "Haskell Debugger AoC module mainTest",
+            "name": "Haskell Debugger AoC module tTest2",
             "projectRoot": "${workspaceFolder}",
             "entryFile": "src/AoC.hs",
-            "entryPoint": "mainTest",
+            "entryPoint": "tTest2",
             "entryArgs": [],
             "extraGhcArgs": []
         }
