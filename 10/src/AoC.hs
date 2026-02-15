@@ -15,9 +15,9 @@
 {--
 part1
 time: 
-attempts:
+attempts: 1
 used chatgpt: yes: get documentation of Seq quickly;
-notes: knowing sepEndBy and between, parsing becomes easy. Initial idea is to form a Tree of choices of button pressing and then travel the tree in breadth-first keeping track of the node traveled to get to each node, and stop once the sequence gives the necessary result. 
+notes: knowing sepEndBy and between, parsing becomes easy. Initial idea is to form a Tree of choices of button pressing and then travel the tree in breadth-first keeping track of the node traveled to get to each node, and stop once the sequence gives the necessary result. 5.631 s ± 746 ms is a bit too slow.
 
 part2
 time:
@@ -163,17 +163,17 @@ applyButtons xs ys = foldr f xs (concat $ toList ys) where
 -- e agora era para ter todos ligados ?
 
 processMachineV1 (Machine pattern buttons joltages) = case a of
-      Just ys -> trace ("ys = " <> show ys) $ Seq.length ys - 1
+      Just ys -> Seq.length ys - 1 -- trace ("ys = " <> show ys) $ 
       Nothing -> error "part1 cannot find solution"
     where 
-      a = bfsStopAtPath 100000 pred $ part1BuildList buttons
+      a = bfsStopAtPath 100000000 pred $ part1BuildList buttons
       startPattern = Seq.replicate (length pattern) False
       seqPattern = Seq.fromList pattern
       pred xs = applyButtons startPattern xs == seqPattern
 
 
 part1 :: ParsedType -> Int
-part1 xs = trace ("smallestSets = " <> show smallestSets) (sum smallestSets) where
+part1 xs = (sum smallestSets) where -- trace ("smallestSets = " <> show smallestSets) 
   smallestSets = fmap processMachineV1 xs
 
 part2 = undefined
