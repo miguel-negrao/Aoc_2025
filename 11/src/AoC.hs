@@ -21,10 +21,22 @@ notes: After reading seems to be about directed graphs. I believe the problem st
 
 part2
 time:
-attempts:
-used chatgpt: no
-notes: initial attemp too slow.
+attempts: 1
+used chatgpt: yes, to suggest a more efficient representation than IntMap. It suggested Vector (Vector Int).  I was stuck on taking to long, asked chatgpt for hint. She said "Even on an acyclic graph, enumerating/counting paths with plain DFS can take extremely long when many branches recombine, because the same subproblems get revisited many times." From there I assumed I needed memoization, and went to my usual solution with data-memocombinators.
+notes: initial attemp too slow.  Did a version with IntMap and another with Vector (Vector Int). After adding memoization IntMap is faster.
 
+All
+  part1 without parsing: OK
+    6.32 ms ± 545 μs
+  part2 without parsing: OK
+    9.68 ms ± 217 μs
+  part1 with parsing:    OK
+    7.67 ms ± 326 μs
+  part2 with parsing:    OK
+    11.8 ms ± 443 μs
+
+All 4 tests passed (2.32s)
+Benchmark bench: FINISH
 --}
 
 module AoC
@@ -50,25 +62,18 @@ import Control.Error
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text.IO as TIO
-import Control.Comonad
-import Control.Comonad.Store
-import qualified Data.MemoCombinators as Memo
-import Data.MemoCombinators (Memo)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes, fromMaybe)
-import Control.Comonad.Env (EnvT(..), ask)
 import Control.Monad
-import Control.Comonad.Trans.Env (runEnvT)
 import Data.Foldable
 import Data.Function (fix)
 import Text.Megaparsec.Debug
---import Linear.V3
---import Linear.Metric
-import Math.Combinat.Sets (combine, choose)
 import Data.Ord (Down(..))
 import Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IntMap
+import qualified Data.Vector.Strict as V
+import qualified Data.MemoCombinators as Memo
 
 -- by ChatGPT
 newtype OnePerLine a = OnePerLine [a]
@@ -79,12 +84,6 @@ instance Show a => Show (OnePerLine a) where
   show (OnePerLine xs) = unlines (map show xs)
 
 type Parser = Parsec Void Text
-type LightStatus = Bool
-data Machine = Machine {
-  indicatorLightDiagram :: [Bool],
-  buttonWiringSchematics :: [[Int]],
-  joltageRequirements :: [Int]
-} deriving (Show, Eq)
 
 type ParsedType = Map String [String]
 
@@ -119,24 +118,37 @@ parser :: Parser ParsedType
 parser = Map.fromList <$> some pLine
 
 type Graph = IntMap [Int]
+type VectorGraph = V.Vector (V.Vector Int)
 
 you = 0
-out = 1
 
-dac = 2
-
-fft = 3
-svr = 4
-
-convertGraph :: Map String [String] -> IntMap [Int]
-convertGraph map = IntMap.fromList xs where
+convertGraph :: [String] -> Map String [String] -> IntMap [Int]
+convertGraph important map = IntMap.fromList xs where
   allStrings = nub $ Map.keys map ++ concat (Map.elems map)
-  important = ["you", "out", "dac", "fft", "svr"]
   allStrings' = important ++ (allStrings \\ important)
   ys = Map.toList map
   xs = fmap f ys
   f (a, zs) = (indexOf a, fmap indexOf zs)
   indexOf x = fromMaybe (error "elem not in array") $ elemIndex x allStrings'
+
+convertGraph1 :: Map String [String] -> IntMap [Int]
+convertGraph1 map = convertGraph ["you", "out", "dac", "fft", "svr"] map
+
+dac = 1
+fft = 2
+svr = 3
+
+convertGraph2 :: Map String [String] -> IntMap [Int]
+convertGraph2 map = convertGraph ["out", "dac", "fft", "svr"] map
+
+convertGraph2' :: Map String [String] -> VectorGraph
+convertGraph2' map = v where
+  allStrings = nub $ Map.keys map ++ concat (Map.elems map)
+  important = ["out", "dac", "fft", "svr"]
+  allStrings' = important ++ (allStrings \\ important)
+  indexOf x = fromMaybe (error "elem not in array") $ elemIndex x allStrings'
+  v = V.fromList $ fmap f $ [0..(length allStrings' - 1)]
+  f n = V.fromList $ fmap indexOf $ fromMaybe [] $ Map.lookup (allStrings' !! n) map
 
 lookupGraph :: Int -> Graph -> [Int]
 lookupGraph elem g = fromMaybe [] (IntMap.lookup elem g)
@@ -154,53 +166,53 @@ dft start g = go start [] where
           f newElement = go newElement (element:seenAlready)
 
 part1 :: ParsedType -> Int
-part1 = dft you . convertGraph
+part1 = dft you . convertGraph1
 
-dft2 :: Int -> Graph -> Int
-dft2 start g = go start 0 [] where
-  go :: Int -> Int -> [Int] -> Int
-  go 1 n _ 
+-- Assume no cycles
+-- this runs ok 12.8 ms
+dft2_1 :: Int -> Graph -> Int
+dft2_1 start g = go start 0 where
+  go = Memo.memo2 Memo.integral Memo.integral go'
+  go' :: Int -> Int -> Int
+  go' 0 n 
     | n >= 2 = 1
     | otherwise = 0
-  go element n seenAlready
-      | element `elem` seenAlready = 0 -- trace ("seen already: " <> show element) 0
-      | otherwise = sum $ fmap f nodes where
-          nodes = lookupGraph element g
-          f newElement = go newElement n' (element:seenAlready)
-          n' = if element == dac || element == fft then n + 1 else n -- trace ("found " <> show element) 
-
-dft2' :: Int -> Graph -> Int
-dft2' start g = go start 0 where
-  go :: Int -> Int -> Int
-  go 1 n 
-    | n >= 2 = 1
-    | otherwise = 0
-  go element n
+  go' element n
       | otherwise = sum $ fmap f nodes where
           nodes = lookupGraph element g
           f newElement = go newElement n'
+          n' = if element == dac || element == fft then n + 1 else n -- trace ("found " <> show element)
+
+-- Assume no cycles
+-- 16.1 ms
+dft2_2 :: Int -> VectorGraph -> Int
+dft2_2 start g = go start 0 where
+  go = Memo.memo2 Memo.integral Memo.integral go'
+  go' :: Int -> Int -> Int
+  go' 0 n
+    | n >= 2 = 1
+    | otherwise = 0
+  go' element n
+      | otherwise = sum $ fmap f nodes where
+          nodes = g V.! element
+          f newElement = go newElement n'
           n' = if element == dac || element == fft then n + 1 else n -- trace ("found " <> show element) 
 
-
-bft2 :: Int -> Graph -> Int
-bft2 start g = go (Seq.singleton (0,start)) 0 [] where
-  g' :: IntMap (Seq Int)
-  g' = fmap Seq.fromList g
-  go :: Seq (Int,Int) -> Int -> [Int] -> Int
-  go (Seq.viewl -> Seq.EmptyL) pathCount _ = pathCount 
-  go (Seq.viewl -> (n,x) Seq.:< xs) pathCount seen   
-    | x `elem` seen = go xs pathCount seen
-    | otherwise = go xs' pathCount' seen' where
-                    seen' = (x:seen)
-                    xs' = xs Seq.>< fmap h nodes
-                    h y = (n', y)
-                    nodes = lookupGraph' x g'
-                    n' = if x == dac || x == fft then n + 1 else n
-                    pathCount' = if x == out && n >= 2 then pathCount + 1 else pathCount
-  
-
 part2 :: ParsedType -> Int
-part2 = bft2 svr . convertGraph
+part2 = dft2_1 svr . convertGraph2
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 -- Tests
 
@@ -224,12 +236,64 @@ tParsed2 = case parse parser "input" tString2 of
     Right x -> x
     Left _ -> error "not parsed"
 
-tConv2 = convertGraph tParsed2
+tConv2 = convertGraph2 tParsed2
 
--- >>> tConv2
--- fromList [(2,[10]),(3,[7]),(4,[5,6]),(5,[3]),(6,[14]),(7,[8,9]),(8,[13]),(9,[2]),(10,[11,12]),(11,[1]),(12,[1]),(13,[10]),(14,[7])]
+{--
 
-tTest2 = part2 tParsed2
 
--- >>> tTest2
--- 0
+dft2 :: Int -> Graph -> Int
+dft2 start g = go start 0 [] where
+  go :: Int -> Int -> [Int] -> Int
+  go 0 n _ 
+    | n >= 2 = 1
+    | otherwise = 0
+  go element n seenAlready
+      | element `elem` seenAlready = 0 -- trace ("seen already: " <> show element) 0
+      | otherwise = sum $ fmap f nodes where
+          nodes = lookupGraph element g
+          f newElement = go newElement n' (element:seenAlready)
+          n' = if element == dac || element == fft then n + 1 else n -- trace ("found " <> show element) 
+          
+dft3 :: Int -> VectorGraph -> Int
+dft3 start g = go start 0 [] where
+  go :: Int -> Int -> [Int] -> Int
+  go 0 n _ 
+    | n >= 2 = 1
+    | otherwise = 0
+  go element n inStack
+      | element `elem` inStack = trace ("cycle detected") 0 -- trace ("seen already: " <> show element) 0
+      | otherwise = sum $ fmap f nodes where
+          nodes = g V.! element
+          f newElement = go newElement n' (element:inStack)
+          n' = if element == dac || element == fft then n + 1 else n -- trace ("found " <> show element) 
+
+bft2 :: Int -> Graph -> Int
+bft2 start g = go (Seq.singleton (0,start)) 0 [] where
+  g' :: IntMap (Seq Int)
+  g' = fmap Seq.fromList g
+  go :: Seq (Int,Int) -> Int -> [Int] -> Int
+  go (Seq.viewl -> Seq.EmptyL) pathCount _ = pathCount 
+  go (Seq.viewl -> (n,x) Seq.:< xs) pathCount seen   
+    | x `elem` seen = go xs pathCount seen
+    | otherwise = go xs' pathCount' seen' where
+                    seen' = (x:seen)
+                    xs' = xs Seq.>< fmap h nodes
+                    h y = (n', y)
+                    nodes = lookupGraph' x g'
+                    n' = if x == dac || x == fft then n + 1 else n
+                    pathCount' = if x == out && n >= 2 then pathCount + 1 else pathCount
+
+-- Assume no cycles
+bft4 :: Int -> VectorGraph -> Int
+bft4 start g = go (Seq.singleton (0,start)) 0 where
+  go :: Seq (Int,Int) -> Int -> Int
+  go (Seq.viewl -> Seq.EmptyL) pathCount = pathCount 
+  go (Seq.viewl -> (n,x) Seq.:< xs) pathCount   
+    | otherwise = go xs' pathCount' where
+                    xs' = xs Seq.>< fmap h nodes
+                    h y = (n', y)
+                    nodes = Seq.fromList $ V.toList $ g V.! x
+                    n' = if x == dac || x == fft then n + 1 else n
+                    pathCount' = if x == out && n >= 2 then pathCount + 1 else pathCount
+
+--}
