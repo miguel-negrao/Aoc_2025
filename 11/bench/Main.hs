@@ -14,17 +14,14 @@ parseAndRun f input = case parse parser "input" input of
 main :: IO ()
 main = do
     input <- TIO.readFile "input"
-    let 
-        p2_intmap = dft2_1 svr . convertGraph2
-        p2_vector = dft2_2 svr . convertGraph2'
     case parse parser "input" input of
         Left err -> putStrLn (errorBundlePretty err)
         Right parsed ->
             defaultMain
                 [ bench "part1 without parsing" $ nf part1 parsed
-                , bench "part2 without parsing p2_intmap" $ nf p2_intmap parsed
-                , bench "part2 without parsing p2_vector" $ nf p2_vector parsed
+                , bench "part2 without parsing p2_intmap" $ nf part2IntMap parsed
+                , bench "part2 without parsing p2_vector" $ nf part2Vector parsed
                 , bench "part1 with parsing" $ nf (parseAndRun part1) input
-                , bench "part2 with parsing p2_intmap" $ nf (parseAndRun p2_intmap) input
-                , bench "part2 with parsing p2_vector" $ nf (parseAndRun p2_vector) input
+                , bench "part2 with parsing p2_intmap" $ nf (parseAndRun part2IntMap) input
+                , bench "part2 with parsing p2_vector" $ nf (parseAndRun part2Vector) input
                 ]

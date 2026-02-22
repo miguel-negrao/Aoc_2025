@@ -23,24 +23,24 @@ part2
 time:
 attempts: 1
 used chatgpt: yes, to suggest a more efficient representation than IntMap. It suggested Vector (Vector Int).  I was stuck on taking to long, asked chatgpt for hint. She said "Even on an acyclic graph, enumerating/counting paths with plain DFS can take extremely long when many branches recombine, because the same subproblems get revisited many times." From there I assumed I needed memoization, and went to my usual solution with data-memocombinators.
-notes: initial attemp too slow.  Did a version with IntMap and another with Vector (Vector Int). After adding memoization IntMap is faster.
+notes: initial attemp too slow, memoization solved the issue.  Using Map in convertGraph makes it much faster on the lookup from string to int. Did a version with IntMap and another with Vector (Vector Int). IntMap is slightly faster, and the code is simpler. 
 
 Benchmark bench: RUNNING...
 All
   part1 without parsing:           OK
-    6.10 ms ± 304 μs
+    581  μs ±  45 μs
   part2 without parsing p2_intmap: OK
-    13.2 ms ± 1.1 ms
+    2.68 ms ±  86 μs
   part2 without parsing p2_vector: OK
-    16.7 ms ± 1.4 ms
+    2.91 ms ±  21 μs
   part1 with parsing:              OK
-    7.63 ms ± 567 μs
+    2.43 ms ± 231 μs
   part2 with parsing p2_intmap:    OK
-    15.6 ms ± 117 μs
+    5.53 ms ± 134 μs
   part2 with parsing p2_vector:    OK
-    22.5 ms ± 1.7 ms
+    5.11 ms ± 358 μs
 
-All 6 tests passed (5.47s)
+All 6 tests passed (19.85s)
 --}
 
 module AoC
@@ -48,11 +48,8 @@ module AoC
     , parser
     , part1
     , part2
-    , convertGraph2
-    , convertGraph2'
-    , dft2_1
-    , dft2_2
-    , svr
+    , part2IntMap
+    , part2Vector
     , ParsedType
     ) where
 
@@ -83,6 +80,9 @@ import Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IntMap
 import qualified Data.Vector.Strict as V
 import qualified Data.MemoCombinators as Memo
+import qualified Data.MemoCombinators.Class as Memo
+import qualified Data.IntMap as M
+import qualified Control.Applicative as Vector
 
 -- by ChatGPT
 newtype OnePerLine a = OnePerLine [a]
@@ -94,7 +94,7 @@ instance Show a => Show (OnePerLine a) where
 
 type Parser = Parsec Void Text
 
-type ParsedType = Map String [String]
+type ParsedType = [(String, [String])]
 
 {--
 aaa: you hhh
@@ -124,40 +124,52 @@ pLine = do
   return (device, outputs)
 
 parser :: Parser ParsedType
-parser = Map.fromList <$> some pLine
+parser = some pLine
 
 type Graph = IntMap [Int]
 type VectorGraph = V.Vector (V.Vector Int)
 
 you = 0
 
-convertGraph :: [String] -> Map String [String] -> IntMap [Int]
-convertGraph important map = IntMap.fromList xs where
-  allStrings = nub $ Map.keys map ++ concat (Map.elems map)
-  allStrings' = important ++ (allStrings \\ important)
-  ys = Map.toList map
-  xs = fmap f ys
-  f (a, zs) = (indexOf a, fmap indexOf zs)
-  indexOf x = fromMaybe (error "elem not in array") $ elemIndex x allStrings'
+-- todo: add binary search
+-- memoize 
 
-convertGraph1 :: Map String [String] -> IntMap [Int]
-convertGraph1 map = convertGraph ["you", "out", "dac", "fft", "svr"] map
+convertGraph :: [String] -> ParsedType -> IntMap [Int]
+convertGraph important xs = IntMap.fromList ys where
+  allStrings :: [String]
+  -- lets assume all nodes have a line. If they don't we get an error down at indexOf. out doesn't but we add it.
+  allStrings = fmap fst xs
+  allStrings' :: [String]
+  allStrings' = important ++ (allStrings \\ important)
+  map = Map.fromList $ zipWith (\a b -> (a,b)) allStrings' [0..]
+  ys = fmap f xs
+  f (a, zs) = (indexOf a, fmap indexOf zs)
+  indexOf :: String -> Int
+  indexOf s = fromMaybe (error "elem not in array") $ Map.lookup s map
+
+
+convertGraph1 :: ParsedType -> IntMap [Int]
+convertGraph1 = convertGraph ["you", "out", "dac", "fft", "svr"]
 
 dac = 1
 fft = 2
 svr = 3
 
-convertGraph2 :: Map String [String] -> IntMap [Int]
-convertGraph2 map = convertGraph ["out", "dac", "fft", "svr"] map
+convertGraph2 :: ParsedType -> IntMap [Int]
+convertGraph2 = convertGraph ["out", "dac", "fft", "svr"]
 
-convertGraph2' :: Map String [String] -> VectorGraph
-convertGraph2' map = v where
-  allStrings = nub $ Map.keys map ++ concat (Map.elems map)
-  important = ["out", "dac", "fft", "svr"]
-  allStrings' = important ++ (allStrings \\ important)
-  indexOf x = fromMaybe (error "elem not in array") $ elemIndex x allStrings'
-  v = V.fromList $ fmap f $ [0..(length allStrings' - 1)]
-  f n = V.fromList $ fmap indexOf $ fromMaybe [] $ Map.lookup (allStrings' !! n) map
+convertGraphVector :: ParsedType -> (VectorGraph, Int, Int, Int)
+convertGraphVector xs = (V.fromList ys, indexOf "svr", indexOf "dac", indexOf "fft") where
+  allStrings :: [String]
+  allStrings = fmap fst xs
+  map' :: Map String Int
+  map' = Map.fromList $ zipWith (\a b -> (a,b)) allStrings [1..]
+  map :: Map String Int
+  map = Map.insert "out" 0 map'
+  indexOf :: String -> Int
+  indexOf s = fromMaybe (error $ "elem not in array: " <> show s) $ Map.lookup s map
+  ys = V.empty : fmap f xs
+  f (a, zs) = V.fromList $ fmap indexOf zs
 
 lookupGraph :: Int -> Graph -> [Int]
 lookupGraph elem g = fromMaybe [] (IntMap.lookup elem g)
@@ -178,7 +190,7 @@ part1 :: ParsedType -> Int
 part1 = dft you . convertGraph1
 
 -- Assume no cycles
--- this runs ok 12.8 ms
+-- 2.68 ms
 dft2_1 :: Int -> Graph -> Int
 dft2_1 start g = go start 0 where
   go = Memo.memo2 Memo.integral Memo.integral go'
@@ -193,24 +205,27 @@ dft2_1 start g = go start 0 where
           n' = if element == dac || element == fft then n + 1 else n -- trace ("found " <> show element)
 
 -- Assume no cycles
--- 16.1 ms
-dft2_2 :: Int -> VectorGraph -> Int
-dft2_2 start g = go start 0 where
+-- 2.91 ms
+dft2_2 :: Int -> Int -> Int -> VectorGraph -> Int
+dft2_2 start dac' fft' g = go start 0 where
   go = Memo.memo2 Memo.integral Memo.integral go'
   go' :: Int -> Int -> Int
-  go' 0 n
+  go' 0 n 
     | n >= 2 = 1
     | otherwise = 0
-  go' element n
-      | otherwise = sum $ fmap f nodes where
-          nodes = g V.! element
-          f newElement = go newElement n'
-          n' = if element == dac || element == fft then n + 1 else n -- trace ("found " <> show element) 
+  go' element n = sum $ fmap f nodes where
+        nodes = g V.! element
+        f newElement = go newElement n'
+        n' = if element == dac' || element == fft' then n + 1 else n
 
-part2 :: ParsedType -> Int
-part2 = dft2_1 svr . convertGraph2
+part2IntMap :: ParsedType -> Int
+part2IntMap = dft2_1 svr . convertGraph2
 
+part2Vector :: ParsedType -> Int
+part2Vector xs = dft2_2 svr' dac' fft' g where
+  (g, svr', dac', fft') = convertGraphVector xs
 
+part2 = part2Vector
 
 
 
