@@ -44,23 +44,15 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text.IO as TIO
 
--- comonad stuff
-import Control.Comonad
-import Control.Comonad.Store
 import qualified Data.MemoCombinators as Memo
 import Data.MemoCombinators (Memo)
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Control.Lens
+-- import Control.Lens
 import Data.Maybe (catMaybes, fromMaybe)
-import Control.Comonad.Env (EnvT(..), ask)
-import Control.Monad (guard)
-import Control.Comonad.Trans.Env (runEnvT)
-import qualified Data.Foldable as Set
-import Data.Function (fix)
+import Control.Monad
 import Text.Megaparsec.Debug
---import Linear.V3
---import Linear.Metric
+
 import Math.Combinat.Sets (combine, choose)
 import Data.Ord (Down(..))
 
