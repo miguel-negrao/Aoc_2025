@@ -17,7 +17,7 @@ part1
 time: 
 attempts:
 used chatgpt: no
-notes: 
+notes: for each tree, generate the list of (presentIndex, pos) with the presents that need to be under it and check until finding a set of positions that fit. This would be very brute-force.
 
 part2
 time:
@@ -38,7 +38,8 @@ module AoC
 import Data.List
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
-
+import Control.Monad
+import Data.Functor
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Void (Void)
@@ -50,22 +51,16 @@ import Control.Error
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text.IO as TIO
-import Control.Comonad
-import Control.Comonad.Store
 import qualified Data.MemoCombinators as Memo
 import Data.MemoCombinators (Memo)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes, fromMaybe)
-import Control.Comonad.Env (EnvT(..), ask)
-import Control.Monad
-import Control.Comonad.Trans.Env (runEnvT)
 import Data.Foldable
 import Data.Function (fix)
 import Text.Megaparsec.Debug
---import Linear.V3
---import Linear.Metric
-import Math.Combinat.Sets (combine, choose)
+import Data.Vector (Vector)
+import qualified Data.Vector as V
 import Data.Ord (Down(..))
 import GHC.Conc (numSparks)
 
@@ -78,9 +73,10 @@ instance Show a => Show (OnePerLine a) where
   show (OnePerLine xs) = unlines (map show xs)
 
 type Parser = Parsec Void Text
-
-type Shape = [[Bool]]
-type Region = ((Int,Int), [Int])
+type Point = (Int,Int)
+type Index = Int
+type Shape = Vector (Vector Bool)
+type Region = (Point, [Index])
 
 type ParsedType = ([Shape], [Region])
 
@@ -92,8 +88,8 @@ parserShape = do
   pNumber @Int
   char ':'
   newline
-  x <- replicateM 3 $ do
-    y <- replicateM 3 $ choice [char '#' $> True, char '.' $> False]
+  x <- V.replicateM 3 $ do
+    y <- V.replicateM 3 $ choice [char '#' $> True, char '.' $> False]
     newline
     return y
   newline
@@ -113,6 +109,9 @@ parser = do
   shapes <- some (try parserShape)
   regions <- some parserRegion
   return (shapes, regions)
+
+checkPresents :: Region -> Point -> [(Index, Point)]
+checkPresents = undefined
 
 part1 :: ParsedType -> Int
 part1 xs = undefined

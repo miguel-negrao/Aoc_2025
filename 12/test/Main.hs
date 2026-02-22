@@ -11,8 +11,6 @@ import Test.QuickCheck (Gen, Property, choose, forAll, listOf, (==>), shuffle)
 import Numeric.Natural (Natural)
 import qualified Data.Set as Set
 import Data.List
-import Math.Combinat.Sets (combine)
-import qualified Math.Combinat.Sets as Sets
 import qualified Data.Map.Strict as Map
 
 main :: IO ()
