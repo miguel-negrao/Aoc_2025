@@ -9,6 +9,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE BangPatterns #-}
 
 {- HLINT ignore "Unused LANGUAGE pragma" -}
 
@@ -198,11 +199,11 @@ dft2_1 start g = go start 0 where
   go' 0 n 
     | n >= 2 = 1
     | otherwise = 0
-  go' element n
+  go' !element !n
       | otherwise = sum $ fmap f nodes where
           nodes = lookupGraph element g
           f newElement = go newElement n'
-          n' = if element == dac || element == fft then n + 1 else n -- trace ("found " <> show element)
+          !n' = if element == dac || element == fft then n + 1 else n -- trace ("found " <> show element)
 
 -- Assume no cycles
 -- 2.91 ms
@@ -213,10 +214,10 @@ dft2_2 start dac' fft' g = go start 0 where
   go' 0 n 
     | n >= 2 = 1
     | otherwise = 0
-  go' element n = sum $ fmap f nodes where
+  go' !element !n = sum $ fmap f nodes where
         nodes = g V.! element
         f newElement = go newElement n'
-        n' = if element == dac' || element == fft' then n + 1 else n
+        !n' = if element == dac' || element == fft' then n + 1 else n
 
 part2IntMap :: ParsedType -> Int
 part2IntMap = dft2_1 svr . convertGraph2
