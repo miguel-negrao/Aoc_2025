@@ -111,7 +111,7 @@ parser = do
   return (shapes, regions)
 
 createEmptyRegion :: Int -> Int -> Shape
-createEmptyRegion w h = V.replicate h (V.replicate w False)j
+createEmptyRegion w h = V.replicate h (V.replicate w False)
 
 addPresent :: Point -> Shape -> Point -> Shape -> Maybe Shape
 addPresent (w,h) region (x,y) present
