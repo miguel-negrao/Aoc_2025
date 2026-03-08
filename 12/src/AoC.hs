@@ -110,7 +110,15 @@ parser = do
   regions <- some parserRegion
   return (shapes, regions)
 
-checkPresents :: Region -> Point -> [(Index, Point)]
+createEmptyRegion :: Int -> Int -> Shape
+createEmptyRegion w h = V.replicate h (V.replicate w False)j
+
+addPresent :: Point -> Shape -> Point -> Shape -> Maybe Shape
+addPresent (w,h) region (x,y) present
+  | (x + V.length (present V.! 0) > w) || 
+    (y + V.length present > h) = Nothing
+
+checkPresents :: [Shape] -> Point -> [(Index, Point)]
 checkPresents = undefined
 
 part1 :: ParsedType -> Int
