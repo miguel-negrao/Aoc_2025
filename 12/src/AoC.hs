@@ -106,14 +106,43 @@ rotateRight xs = V.map f xs where
  f (2,2) = (1,2)
  f x = error $ "rotateRight doesn't accept input " <> show x
 
+flipVertical :: Shape -> Shape
+flipVertical xs = V.map f xs where
+ f (0,0) = (2,0) 
+ f (1,0) = (1,0)
+ f (2,0) = (0,0)
+ f (0,1) = (2,1) 
+ f (1,1) = (1,1)
+ f (2,1) = (0,1)
+ f (0,2) = (2,2) 
+ f (1,2) = (1,2)
+ f (2,2) = (0,2)
+ f x = error $ "flipVertical doesn't accept input " <> show x
+
+flipHorizontal :: Shape -> Shape
+flipHorizontal xs = V.map f xs where
+ f (0,0) = (0,2) 
+ f (1,0) = (1,2)
+ f (2,0) = (2,2)
+ f (0,1) = (0,1) 
+ f (1,1) = (1,1)
+ f (2,1) = (2,1)
+ f (0,2) = (0,0) 
+ f (1,2) = (1,0)
+ f (2,2) = (2,0)
+ f x = error $ "rotateRight doesn't accept input " <> show x
+
 createEmptyRegion width height = V.replicate (width*height) False 
 
 checkListRegions :: Point -> [(Point, Shape)] -> Bool
 checkListRegions (width, height) xs = go (createEmptyRegion width height) xs where
   go region [] = True
-  go region (x:xs) = undefined
+  go region ((p,shape):xs) = case maybeNewRegion of
+      Nothing -> False
+      Just newRegion -> go newRegion xs
+    where
+      maybeNewRegion = putShapeInRegion width height region p shape
 
--- Is this really slow ?
 putShapeInRegion :: Int -> Int -> Area -> Point -> Shape -> Maybe Area
 putShapeInRegion width height area topLeft@(x,y) shape
   | (x + 3 > width) || (y + 3 > height) = Nothing -- should be error ?
@@ -157,6 +186,9 @@ pNumber = read <$> some digitChar
 
 listImap :: (Int -> a -> b) -> [a] -> [b]
 listImap f xs = fmap (uncurry f) $ zip [0..] xs
+
+showShape :: Shape -> String
+showShape xs = undefined 
 
 parserShape :: Parser Shape
 parserShape = do
