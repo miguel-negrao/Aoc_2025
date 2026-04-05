@@ -54,13 +54,14 @@ import qualified Data.Text.IO as TIO
 import qualified Data.MemoCombinators as Memo
 import Data.MemoCombinators (Memo)
 import Data.Map (Map)
+import Data.Maybe
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.Foldable
 import Data.Function (fix)
 import Text.Megaparsec.Debug
-import Data.Vector (Vector)
-import qualified Data.Vector as V
+import Data.Vector.Unboxed (Vector)
+import qualified Data.Vector.Unboxed as V
 import Data.Ord (Down(..))
 import GHC.Conc (numSparks)
 
@@ -80,14 +81,20 @@ instance Show a => Show (OnePerLine a) where
 type Parser = Parsec Void Text
 type Point = (Int,Int)
 type Index = Int
-type Shape = Set Point
+type Shape = Vector Point
+-- A flat array where we calculate the 2D -> 1D index conversion
+type Area = Vector Bool
+
+convertIndex :: Int -> Point -> Int
+convertIndex width (x,y) = y*width + x
+
 -- (width, height) and  list of shapes to put in that region
 type Region = (Point, [Index])
 
 type ParsedType = ([Shape], [Region])
 
 rotateRight :: Shape -> Shape
-rotateRight xs = fmap f xs where
+rotateRight xs = V.map f xs where
  f (0,0) = (1,0) 
  f (1,0) = (2,0)
  f (2,0) = (2,1)
@@ -98,7 +105,8 @@ rotateRight xs = fmap f xs where
  f (1,2) = (0,2)
  f (2,2) = (1,2)
  f x = error $ "rotateRight doesn't accept input " <> show x
- 
+
+createEmptyRegion width height = V.replicate (width*height) False 
 
 checkListRegions :: Point -> [(Point, Shape)] -> Bool
 checkListRegions (width, height) xs = go (createEmptyRegion width height) xs where
@@ -106,13 +114,29 @@ checkListRegions (width, height) xs = go (createEmptyRegion width height) xs whe
   go region (x:xs) = undefined
 
 -- Is this really slow ?
-putShapeInRegion :: Int -> Int -> Shape -> Point -> Shape -> Maybe Shape
-putShapeInRegion width height region (x,y) shape
-  | (x + 3 > width) || (y + 3 > height) = Nothing
-  | not $ Set.disjoint region shapeTranslated = Nothing
-  | otherwise = Just $ Set.union region shapeTranslated
-  where
-    shapeTranslated = fmap (addPoint p) shape
+putShapeInRegion :: Int -> Int -> Area -> Point -> Shape -> Maybe Area
+putShapeInRegion width height area topLeft@(x,y) shape
+  | (x + 3 > width) || (y + 3 > height) = Nothing -- should be error ?
+  | shapeInAreaIsOccupied width area topLeft shape = Nothing
+  | otherwise = Just $ setShapeInArea width area topLeft shape
+
+shapeInAreaIsOccupied :: Int -> Area -> Point -> Shape -> Bool
+shapeInAreaIsOccupied width area topLeft shape = V.any f shape where
+  f p = area V.! (convertIndex width $ addPoint topLeft p)
+
+setShapeInArea :: Int -> Area -> Point -> Shape -> Area
+setShapeInArea width area topLeft shape = V.update area values where
+  values = V.map f shape
+  f p = (convertIndex width $ addPoint topLeft p, True)
+
+-- Is this really slow ?
+-- putShapeInRegion :: Int -> Int -> Shape -> Point -> Shape -> Maybe Shape
+-- putShapeInRegion width height region (x,y) shape
+--   | (x + 3 > width) || (y + 3 > height) = Nothing
+--   | not $ Set.disjoint region shapeTranslated = Nothing
+--   | otherwise = Just $ Set.union region shapeTranslated
+--   where
+--     shapeTranslated = fmap (addPoint p) shape
 
 -- could be optimized by geting row only once
 -- anyTrueSubregion v (x,y) = any id values where 
@@ -125,26 +149,27 @@ putShapeInRegion width height region (x,y) shape
 addPoint :: Point -> Point -> Point
 addPoint (a,b) (c,d) = (a+c,b+d)
 
-shapeAt :: Point -> Shape -> Bool
-shapeAt (x,y) v = (v V.! y) V.! x
-
-updateArea :: Area -> Shape -> Area
-updateArea = 
+--shapeAt :: Point -> Shape -> Bool
+--shapeAt (x,y) v = (v V.! y) V.! x
 
 pNumber :: forall a. Read a => Parser a
 pNumber = read <$> some digitChar
+
+listImap :: (Int -> a -> b) -> [a] -> [b]
+listImap f xs = fmap (uncurry f) $ zip [0..] xs
 
 parserShape :: Parser Shape
 parserShape = do
   pNumber @Int
   char ':'
   newline
-  x <- V.replicateM 3 $ do
-    y <- V.replicateM 3 $ choice [char '#' $> True, char '.' $> False]
+  xs <- replicateM 3 $ do
+    ys <- replicateM 3 $ choice [char '#' $> True, char '.' $> False]
     newline
-    return y
+    return ys
   newline
-  return x 
+  let zs = listImap (\j ys' -> listImap (\i b -> if b then Just (i,j) else Nothing) ys') xs
+  return $ V.fromList $ catMaybes $ concat zs
 
 parserRegion :: Parser Region
 parserRegion = do
@@ -161,17 +186,6 @@ parser = do
   regions <- some parserRegion
   return (shapes, regions)
 
-createEmptyRegion :: Int -> Int -> Shape
-createEmptyRegion w h = V.replicate h (V.replicate w False)
-
-addPresent :: Point -> Shape -> Point -> Shape -> Maybe Shape
-addPresent (w,h) region (x,y) present
-  | (x + V.length (present V.! 0) > w) || 
-    (y + V.length present > h) = Nothing
-
-checkPresents :: [Shape] -> Point -> [(Index, Point)]
-checkPresents = undefined
-
 part1 :: ParsedType -> Int
 part1 xs = undefined
 
@@ -184,7 +198,7 @@ genTestString = do
     s <- readFile "test_input"
     putStrLn $  "tString = " <> show s
 
-tString = "[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}\n[...#.] (0,2,3,4) (2,3) (0,4) (0,1,2) (1,2,3,4) {7,5,12,7,2}\n[.###.#] (0,1,2,3,4) (0,3,4) (0,1,2,4,5) (1,2) {10,11,11,5,10,5}\n"
+tString = "0:\n###\n##.\n##.\n\n1:\n###\n##.\n.##\n\n2:\n.##\n###\n##.\n\n3:\n##.\n###\n##.\n\n4:\n###\n#..\n###\n\n5:\n###\n.#.\n###\n\n4x4: 0 0 0 0 2 0\n12x5: 1 0 1 0 2 2\n12x5: 1 0 1 0 3 2\n"
 
 tParsed = case parse parser "input" tString of
     Right x -> x
