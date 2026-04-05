@@ -93,7 +93,7 @@ parserShape = do
     newline
     return y
   newline
-  return x
+  return x 
 
 parserRegion :: Parser Region
 parserRegion = do
@@ -126,7 +126,6 @@ part1 xs = undefined
 
 part2 = undefined
 
-
 -- Tests
 
 genTestString :: IO ()
@@ -139,6 +138,24 @@ tString = "[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}\n[...#.] (0,2,3,4) (
 tParsed = case parse parser "input" tString of
     Right x -> x
     Left _ -> error "not parsed"
+
+testFold1 = foldr' f 0 where
+  f element 10 = 10
+  f element n = n + 1
+
+testFold2 = testFold1 [1,2,3,4,5,6,7,8,9,10,undefined]
+
+-- this loops
+tFold3 = testFold1 [1..]
+
+tFold4 10 xs = 10
+tFold4 n [] = n
+tFold4 n (x:xs) = tFold4 (n+1) xs
+
+tFold5 = tFold4 0 [1..3]
+
+-- nice, short circuit accomplished ! I just have to fuse the f with foldr and shortcircuit when neeed.
+tFold6 = tFold4 0 [1..]
 
 
 
