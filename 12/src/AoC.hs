@@ -64,6 +64,11 @@ import qualified Data.Vector as V
 import Data.Ord (Down(..))
 import GHC.Conc (numSparks)
 
+-- vscode on termux on android on portuguese keyboard cannot type [] !! arghhhh!!!
+emptyList = []
+infiniteList n = [n..]
+listFromTo a b = [a..b]
+
 -- by ChatGPT
 newtype OnePerLine a = OnePerLine [a]
 
@@ -76,9 +81,33 @@ type Parser = Parsec Void Text
 type Point = (Int,Int)
 type Index = Int
 type Shape = Vector (Vector Bool)
+-- (width, height) and  list of shapes to put in that region
 type Region = (Point, [Index])
 
 type ParsedType = ([Shape], [Region])
+
+checkListRegions :: Point -> [(Point, Shape)] -> Bool
+checkListRegions (width, height) xs = go (createEmptyRegion width height) xs where
+  go region [] = True
+  go region (x:xs) = undefined
+
+putShapeInRegion :: Int -> Int -> Shape -> Point -> Shape -> Maybe Shape
+putShapeInRegion width height region (x,y) shape
+  | (x + 3 > width) || (y + 3 > height) = Nothing
+  | anyTrueSubregion region (x,y) = Nothing
+  | otherwise = Just $ region V.// (shapeToItemList (x,y) shape)
+
+anyTrueSubregion v (x,y) = any id values where 
+  positions = do
+    i <- [0..2]
+    j <- [0..2]
+    return (x + i , y + j)
+  values = fmap (\pos -> shapeAt pos v) positions
+
+shapeAt :: Point -> Shape -> Bool
+shapeAt (x,y) v = (v V.! y) V.! x
+
+shapeToItemList = undefined
 
 pNumber :: forall a. Read a => Parser a
 pNumber = read <$> some digitChar
