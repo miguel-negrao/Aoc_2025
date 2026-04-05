@@ -80,34 +80,56 @@ instance Show a => Show (OnePerLine a) where
 type Parser = Parsec Void Text
 type Point = (Int,Int)
 type Index = Int
-type Shape = Vector (Vector Bool)
+type Shape = Set Point
 -- (width, height) and  list of shapes to put in that region
 type Region = (Point, [Index])
 
 type ParsedType = ([Shape], [Region])
+
+rotateRight :: Shape -> Shape
+rotateRight xs = fmap f xs where
+ f (0,0) = (1,0) 
+ f (1,0) = (2,0)
+ f (2,0) = (2,1)
+ f (0,1) = (0,0) 
+ f (1,1) = (1,1)
+ f (2,1) = (2,2)
+ f (0,2) = (0,1) 
+ f (1,2) = (0,2)
+ f (2,2) = (1,2)
+ f x = error $ "rotateRight doesn't accept input " <> show x
+ 
 
 checkListRegions :: Point -> [(Point, Shape)] -> Bool
 checkListRegions (width, height) xs = go (createEmptyRegion width height) xs where
   go region [] = True
   go region (x:xs) = undefined
 
+-- Is this really slow ?
 putShapeInRegion :: Int -> Int -> Shape -> Point -> Shape -> Maybe Shape
 putShapeInRegion width height region (x,y) shape
   | (x + 3 > width) || (y + 3 > height) = Nothing
-  | anyTrueSubregion region (x,y) = Nothing
-  | otherwise = Just $ region V.// (shapeToItemList (x,y) shape)
+  | not $ Set.disjoint region shapeTranslated = Nothing
+  | otherwise = Just $ Set.union region shapeTranslated
+  where
+    shapeTranslated = fmap (addPoint p) shape
 
-anyTrueSubregion v (x,y) = any id values where 
-  positions = do
-    i <- [0..2]
-    j <- [0..2]
-    return (x + i , y + j)
-  values = fmap (\pos -> shapeAt pos v) positions
+-- could be optimized by geting row only once
+-- anyTrueSubregion v (x,y) = any id values where 
+--   positions = do
+--     i <- [0..2]
+--     j <- [0..2]
+--     return (x + i , y + j)
+--   values = fmap (\pos -> shapeAt pos v) positions
+
+addPoint :: Point -> Point -> Point
+addPoint (a,b) (c,d) = (a+c,b+d)
 
 shapeAt :: Point -> Shape -> Bool
 shapeAt (x,y) v = (v V.! y) V.! x
 
-shapeToItemList = undefined
+updateArea :: Area -> Shape -> Area
+updateArea = 
 
 pNumber :: forall a. Read a => Parser a
 pNumber = read <$> some digitChar
