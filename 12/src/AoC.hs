@@ -17,7 +17,7 @@ part1
 time: 
 attempts:
 used chatgpt: no
-notes: for each tree, generate the list of (presentIndex, pos) with the presents that need to be under it and check until finding a set of positions that fit. This would be very brute-force.
+notes: First attempt blows up in memory even in the test case. Need to make stuff less lazy ?
 
 part2
 time:
@@ -149,14 +149,16 @@ choices (y:ys) =
 -- >>> choices [[1,2],[5,6,7]]
 -- [[1,5],[1,6],[1,7],[2,5],[2,6],[2,7]]
 
+-- >>> choices [[1,2],[5,6,7],[8,9]]
+-- [[1,5,8],[1,5,9],[1,6,8],[1,6,9],[1,7,8],[1,7,9],[2,5,8],[2,5,9],[2,6,8],[2,6,9],[2,7,8],[2,7,9]]
 
 -- |
 -- For each region we try to make it work. We then count the number of regions that work.
 -- For each region we generate all ways we can put the shapes in the region and check if any works.
 part1 :: ParsedType -> Int
-part1 (shapes, regions) = length $ filter id regionChecks where
+part1 (shapes, regions) = length $ trace ("part1: " <> show regionChecks <> "\n") filter id regionChecks where
   regionChecks = fmap f regions
-  f region@(widthHeight, indexes) =  any (checkListRegions widthHeight) $  createPossibilities shapes region
+  f region@(dims, indexes) =  any (checkListRegions dims) $  createPossibilities shapes region
 
 -- Preciso de criar função que gera todas as possibilidades de colocar n0 formas 0, n1 formas1, etc. com todas as rotações, e inversões e posicionamentos possíveis.
 -- take each shape, associate with a point.
@@ -240,6 +242,7 @@ parserRegion = do
   b <- pNumber @Int
   string ": "
   nums <- sepBy1 (pNumber @Int) (char ' ')
+  newline
   return ((a,b) , nums)
 
 parser :: Parser ParsedType
@@ -264,6 +267,9 @@ tString = "0:\n###\n##.\n##.\n\n1:\n###\n##.\n.##\n\n2:\n.##\n###\n##.\n\n3:\n##
 tParsed = case parse parser "input" tString of
     Right x -> x
     Left _ -> error "not parsed"
+
+-- >>> tParsed
+-- ([[(0,0),(1,0),(2,0),(0,1),(1,1),(0,2),(1,2)],[(0,0),(1,0),(2,0),(0,1),(1,1),(1,2),(2,2)],[(1,0),(2,0),(0,1),(1,1),(2,1),(0,2),(1,2)],[(0,0),(1,0),(0,1),(1,1),(2,1),(0,2),(1,2)],[(0,0),(1,0),(2,0),(0,1),(0,2),(1,2),(2,2)],[(0,0),(1,0),(2,0),(1,1),(0,2),(1,2),(2,2)]],[((4,4),[0,0,0,0,2,0]),((12,5),[1,0,1,0,2,2]),((12,5),[1,0,1,0,3,2])])
 
 testFold1 = foldr' f 0 where
   f element 10 = 10
