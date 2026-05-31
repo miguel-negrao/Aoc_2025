@@ -9,6 +9,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE BangPatterns #-}
 
 {- HLINT ignore "Unused LANGUAGE pragma" -}
 
@@ -139,12 +140,13 @@ createEmptyRegion (width, height) = V.replicate (width*height) False
 -- |
 -- Given a list of lists generate all ways of picking one element out of every list, returning them in a list in the same order as the lists that were given.
 choices :: [[x]] -> [[x]]
-choices [] = [[]]
-choices (y:ys) = 
-  do
-     z <- y
-     zs <- choices ys
-     return $ z:zs
+choices xs0 = {-# SCC "choices" #-} go xs0 where
+  go [] = [[]]
+  go (y:ys) =
+    do
+      z <- y
+      zs <- go ys
+      return $ z:zs
 
 -- >>> choices [[1,2],[5,6,7]]
 -- [[1,5],[1,6],[1,7],[2,5],[2,6],[2,7]]
@@ -163,16 +165,16 @@ part1 (shapes, regions) = length $ trace ("part1: " <> show regionChecks <> "\n"
 -- Preciso de criar função que gera todas as possibilidades de colocar n0 formas 0, n1 formas1, etc. com todas as rotações, e inversões e posicionamentos possíveis.
 -- take each shape, associate with a point.
 createPossibilities :: [Shape] -> (Dimensions, [Index]) -> [[(Point, Shape)]]
-createPossibilities shapes (dims, indexes) = choices shapes3 where
+createPossibilities shapes (dims, indexes) = {-# SCC "createPossibilities" #-} choices shapes3 where
     (maxW, maxH) = addPoint dims (-3, -3)
-    shapes3 = concat $ zipWith f shapes2 indexes
-    f xs n = replicate n xs
-    shapes2 = fmap g shapes
-    g shape = do
+    shapes3 = {-# SCC "createPossibilities.shapes3" #-} concat $ zipWith f shapes2 indexes
+    f xs n = {-# SCC "createPossibilities.replicate" #-} replicate n xs
+    shapes2 = {-# SCC "createPossibilities.shapes2" #-} fmap g shapes
+    g shape = {-# SCC "createPossibilities.shapeOptions" #-} do
       p <- positions
       s <- generateRotationsFlips shape
       return (p, s)
-    positions = do
+    positions = {-# SCC "createPossibilities.positions" #-} do
       x <- [0..maxW]
       y <- [0..maxH]
       return (x,y)
@@ -188,10 +190,10 @@ generateRotationsFlips shape = rotations ++ flips where
 
 checkListRegions :: Dimensions -> [(Point, Shape)] -> Bool
 checkListRegions dims xs = go (createEmptyRegion dims) xs where
-  go region [] = True
-  go region ((p,shape):xs) = case maybeNewRegion of
+  go !_region [] = True
+  go !region ((p,shape):xs) = case maybeNewRegion of
       Nothing -> False
-      Just newRegion -> go newRegion xs
+      Just !newRegion -> go newRegion xs
     where
       maybeNewRegion = putShapeInRegion dims region p shape
 
@@ -199,14 +201,15 @@ putShapeInRegion :: Dimensions -> Area -> Point -> Shape -> Maybe Area
 putShapeInRegion (width, height) area topLeft@(x,y) shape
   | (x + 3 > width) || (y + 3 > height) = error $ "A point was passed to putShapeInRegion which is out of bounds: " <> show topLeft
   | shapeInAreaIsOccupied width area topLeft shape = Nothing
-  | otherwise = Just $ setShapeInArea width area topLeft shape
+  | otherwise = let !area' = setShapeInArea width area topLeft shape in Just area'
 
 shapeInAreaIsOccupied :: Int -> Area -> Point -> Shape -> Bool
 shapeInAreaIsOccupied width area topLeft shape = V.any f shape where
   f p = area V.! (convertIndex width $ addPoint topLeft p)
 
 setShapeInArea :: Int -> Area -> Point -> Shape -> Area
-setShapeInArea width area topLeft shape = V.update area values where
+setShapeInArea width area topLeft shape = area' where
+  !area' = V.update area values
   values = V.map f shape
   f p = (convertIndex width $ addPoint topLeft p, True)
 
