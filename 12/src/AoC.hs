@@ -80,6 +80,7 @@ instance Show a => Show (OnePerLine a) where
 
 type Parser = Parsec Void Text
 type Point = (Int,Int)
+type Dimensions = (Int,Int)
 type Index = Int
 type Shape = Vector Point
 -- A flat array where we calculate the 2D -> 1D index conversion
@@ -89,7 +90,7 @@ convertIndex :: Int -> Point -> Int
 convertIndex width (x,y) = y*width + x
 
 -- (width, height) and  list of shapes to put in that region
-type Region = (Point, [Index])
+type Region = (Dimensions, [Index])
 
 type ParsedType = ([Shape], [Region])
 
@@ -132,7 +133,22 @@ flipHorizontal xs = V.map f xs where
  f (2,2) = (2,0)
  f x = error $ "rotateRight doesn't accept input " <> show x
 
-createEmptyRegion width height = V.replicate (width*height) False 
+createEmptyRegion :: Dimensions -> Vector Bool
+createEmptyRegion (width, height) = V.replicate (width*height) False 
+
+-- |
+-- Given a list of lists generate all ways of picking one element out of every list, returning them in a list in the same order as the lists that were given.
+choices :: [[x]] -> [[x]]
+choices [] = [[]]
+choices (y:ys) = 
+  do
+     z <- y
+     zs <- choices ys
+     return $ z:zs
+
+-- >>> choices [[1,2],[5,6,7]]
+-- [[1,5],[1,6],[1,7],[2,5],[2,6],[2,7]]
+
 
 -- |
 -- For each region we try to make it work. We then count the number of regions that work.
@@ -144,21 +160,42 @@ part1 (shapes, regions) = length $ filter id regionChecks where
 
 -- Preciso de criar função que gera todas as possibilidades de colocar n0 formas 0, n1 formas1, etc. com todas as rotações, e inversões e posicionamentos possíveis.
 -- take each shape, associate with a point.
-createPossibilities :: [Shape] -> Region -> [[(Point, Shape)]]
-createPossibilities = undefined
+createPossibilities :: [Shape] -> (Dimensions, [Index]) -> [[(Point, Shape)]]
+createPossibilities shapes (dims, indexes) = choices shapes3 where
+    (maxW, maxH) = addPoint dims (-3, -3)
+    shapes3 = concat $ zipWith f shapes2 indexes
+    f xs n = replicate n xs
+    shapes2 = fmap g shapes
+    g shape = do
+      p <- positions
+      s <- generateRotationsFlips shape
+      return (p, s)
+    positions = do
+      x <- [0..maxW]
+      y <- [0..maxH]
+      return (x,y)
 
-checkListRegions :: Point -> [(Point, Shape)] -> Bool
-checkListRegions (width, height) xs = go (createEmptyRegion width height) xs where
+
+-- |
+-- generate all rotations and flips of this shape
+-- I tried drawing and seems that the only unique shapes are the original plus 3 rotations and their horizontal flips. Vertical flips will correspond to some horizontal flip.
+generateRotationsFlips :: Vector Point -> [Vector Point]
+generateRotationsFlips shape = rotations ++ flips where
+  rotations = take 4 $ iterate rotateRight shape
+  flips = fmap flipHorizontal rotations
+
+checkListRegions :: Dimensions -> [(Point, Shape)] -> Bool
+checkListRegions dims xs = go (createEmptyRegion dims) xs where
   go region [] = True
   go region ((p,shape):xs) = case maybeNewRegion of
       Nothing -> False
       Just newRegion -> go newRegion xs
     where
-      maybeNewRegion = putShapeInRegion width height region p shape
+      maybeNewRegion = putShapeInRegion dims region p shape
 
-putShapeInRegion :: Int -> Int -> Area -> Point -> Shape -> Maybe Area
-putShapeInRegion width height area topLeft@(x,y) shape
-  | (x + 3 > width) || (y + 3 > height) = Nothing -- should be error ?
+putShapeInRegion :: Dimensions -> Area -> Point -> Shape -> Maybe Area
+putShapeInRegion (width, height) area topLeft@(x,y) shape
+  | (x + 3 > width) || (y + 3 > height) = error $ "A point was passed to putShapeInRegion which is out of bounds: " <> show topLeft
   | shapeInAreaIsOccupied width area topLeft shape = Nothing
   | otherwise = Just $ setShapeInArea width area topLeft shape
 
@@ -171,28 +208,8 @@ setShapeInArea width area topLeft shape = V.update area values where
   values = V.map f shape
   f p = (convertIndex width $ addPoint topLeft p, True)
 
--- Is this really slow ?
--- putShapeInRegion :: Int -> Int -> Shape -> Point -> Shape -> Maybe Shape
--- putShapeInRegion width height region (x,y) shape
---   | (x + 3 > width) || (y + 3 > height) = Nothing
---   | not $ Set.disjoint region shapeTranslated = Nothing
---   | otherwise = Just $ Set.union region shapeTranslated
---   where
---     shapeTranslated = fmap (addPoint p) shape
-
--- could be optimized by geting row only once
--- anyTrueSubregion v (x,y) = any id values where 
---   positions = do
---     i <- [0..2]
---     j <- [0..2]
---     return (x + i , y + j)
---   values = fmap (\pos -> shapeAt pos v) positions
-
 addPoint :: Point -> Point -> Point
 addPoint (a,b) (c,d) = (a+c,b+d)
-
---shapeAt :: Point -> Shape -> Bool
---shapeAt (x,y) v = (v V.! y) V.! x
 
 pNumber :: forall a. Read a => Parser a
 pNumber = read <$> some digitChar
@@ -300,3 +317,27 @@ tFold6 = tFold4 0 [1..]
 -- [(2,5),(2,3)]
 -- [(2,5),(7,3)]
 -- [(2,3),(7,3)]
+
+
+
+-- Is this really slow ?
+-- putShapeInRegion :: Int -> Int -> Shape -> Point -> Shape -> Maybe Shape
+-- putShapeInRegion width height region (x,y) shape
+--   | (x + 3 > width) || (y + 3 > height) = Nothing
+--   | not $ Set.disjoint region shapeTranslated = Nothing
+--   | otherwise = Just $ Set.union region shapeTranslated
+--   where
+--     shapeTranslated = fmap (addPoint p) shape
+
+-- could be optimized by geting row only once
+-- anyTrueSubregion v (x,y) = any id values where 
+--   positions = do
+--     i <- [0..2]
+--     j <- [0..2]
+--     return (x + i , y + j)
+--   values = fmap (\pos -> shapeAt pos v) positions
+
+
+
+--shapeAt :: Point -> Shape -> Bool
+--shapeAt (x,y) v = (v V.! y) V.! x
