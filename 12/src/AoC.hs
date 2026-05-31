@@ -134,6 +134,19 @@ flipHorizontal xs = V.map f xs where
 
 createEmptyRegion width height = V.replicate (width*height) False 
 
+-- |
+-- For each region we try to make it work. We then count the number of regions that work.
+-- For each region we generate all ways we can put the shapes in the region and check if any works.
+part1 :: ParsedType -> Int
+part1 (shapes, regions) = length $ filter id regionChecks where
+  regionChecks = fmap f regions
+  f region@(widthHeight, indexes) =  any (checkListRegions widthHeight) $  createPossibilities shapes region
+
+-- Preciso de criar função que gera todas as possibilidades de colocar n0 formas 0, n1 formas1, etc. com todas as rotações, e inversões e posicionamentos possíveis.
+-- take each shape, associate with a point.
+createPossibilities :: [Shape] -> Region -> [[(Point, Shape)]]
+createPossibilities = undefined
+
 checkListRegions :: Point -> [(Point, Shape)] -> Bool
 checkListRegions (width, height) xs = go (createEmptyRegion width height) xs where
   go region [] = True
@@ -218,8 +231,7 @@ parser = do
   regions <- some parserRegion
   return (shapes, regions)
 
-part1 :: ParsedType -> Int
-part1 xs = undefined
+
 
 part2 = undefined
 
