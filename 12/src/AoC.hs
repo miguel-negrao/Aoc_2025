@@ -17,7 +17,7 @@
 part1
 time: 
 attempts:
-used chatgpt: no
+used chatgpt: yes, to get some help on pinpointing the memory leak.
 notes: First attempt blows up in memory even in the test case. Need to make stuff less lazy ?
 
 part2
