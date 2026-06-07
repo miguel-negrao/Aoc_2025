@@ -179,7 +179,7 @@ part1 :: ParsedType -> Int
 part1 xs = (sum smallestSets) where -- trace ("smallestSets = " <> show smallestSets) 
   smallestSets = fmap processMachineV1 xs
 
-
+-- | right now test doesn't even find the right answer and need to check if I'm keeping the intermediate calculations
 part2 :: ParsedType -> Int
 part2 machines = sum $ fmap part2MinimumNumberOfButtonPresses machines
 
