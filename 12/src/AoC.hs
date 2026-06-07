@@ -17,7 +17,7 @@
 part1
 time: 
 attempts:
-used chatgpt: yes, to get some help on pinpointing the memory leak.
+used chatgpt: yes, to get some help on pinpointing the memory leak. Asked for very generic analysis of my approach, essentially if it could in theory work or not. It wasn't very clear what the answer was, I think it was, perhaphs with some changes. She suggests moving to bit as Integer. My input max seems to be 50x50 that is 2500 bits
 notes: First attempt blows up in memory even in the test case. Need to make stuff less lazy ?
 
 part2
@@ -65,6 +65,7 @@ import Data.Vector.Unboxed (Vector)
 import qualified Data.Vector.Unboxed as V
 import Data.Ord (Down(..))
 import GHC.Conc (numSparks)
+import Data.Bits
 
 -- vscode on termux on android on portuguese keyboard cannot type [] !! arghhhh!!!
 emptyList = []
@@ -81,14 +82,16 @@ instance Show a => Show (OnePerLine a) where
 
 type Parser = Parsec Void Text
 type Point = (Int,Int)
-type Dimensions = (Int,Int)
+type Width = Int
+type Height = Int
+type Dimensions = (Width, Height)
 type Index = Int
-type Shape = Vector Point
--- A flat array where we calculate the 2D -> 1D index conversion
-type Area = Vector Bool
+type Shape = [Point]
+-- A flat array stored as bitset where we calculate the 2D -> 1D index conversion
+type Area = Integer
 
 convertIndex :: Int -> Point -> Int
-convertIndex width (x,y) = y*width + x
+convertIndex width (x,y) = (y*width) + x
 
 -- (width, height) and  list of shapes to put in that region
 type Region = (Dimensions, [Index])
@@ -96,7 +99,7 @@ type Region = (Dimensions, [Index])
 type ParsedType = ([Shape], [Region])
 
 rotateRight :: Shape -> Shape
-rotateRight xs = V.map f xs where
+rotateRight xs = fmap f xs where
  f (0,0) = (1,0) 
  f (1,0) = (2,0)
  f (2,0) = (2,1)
@@ -109,7 +112,7 @@ rotateRight xs = V.map f xs where
  f x = error $ "rotateRight doesn't accept input " <> show x
 
 flipVertical :: Shape -> Shape
-flipVertical xs = V.map f xs where
+flipVertical xs = fmap f xs where
  f (0,0) = (2,0) 
  f (1,0) = (1,0)
  f (2,0) = (0,0)
@@ -122,7 +125,7 @@ flipVertical xs = V.map f xs where
  f x = error $ "flipVertical doesn't accept input " <> show x
 
 flipHorizontal :: Shape -> Shape
-flipHorizontal xs = V.map f xs where
+flipHorizontal xs = fmap f xs where
  f (0,0) = (0,2) 
  f (1,0) = (1,2)
  f (2,0) = (2,2)
@@ -133,9 +136,6 @@ flipHorizontal xs = V.map f xs where
  f (1,2) = (1,0)
  f (2,2) = (2,0)
  f x = error $ "rotateRight doesn't accept input " <> show x
-
-createEmptyRegion :: Dimensions -> Vector Bool
-createEmptyRegion (width, height) = V.replicate (width*height) False 
 
 -- |
 -- Given a list of lists generate all ways of picking one element out of every list, returning them in a list in the same order as the lists that were given.
@@ -162,18 +162,25 @@ part1 (shapes, regions) = length $ trace ("part1: " <> show regionChecks <> "\n"
   regionChecks = fmap f regions
   f region@(dims, indexes) =  any (checkListRegions dims) $  createPossibilities shapes region
 
+generateBitField :: Width -> Point -> Shape -> Integer
+generateBitField width topLeft shape = foldr g 0 indexes where
+  g i x = setBit x i
+  indexes = fmap f shape
+  f p = convertIndex width $ addPoint topLeft p
+
 -- Preciso de criar função que gera todas as possibilidades de colocar n0 formas 0, n1 formas1, etc. com todas as rotações, e inversões e posicionamentos possíveis.
 -- take each shape, associate with a point.
-createPossibilities :: [Shape] -> (Dimensions, [Index]) -> [[(Point, Shape)]]
-createPossibilities shapes (dims, indexes) = {-# SCC "createPossibilities" #-} choices shapes3 where
+createPossibilities :: [Shape] -> (Dimensions, [Index]) -> [[Integer]] -- was (Point, Shape) 
+createPossibilities shapes (dims@(width, height), indexes) = {-# SCC "createPossibilities" #-} choices shapes3 where
     (maxW, maxH) = addPoint dims (-3, -3)
     shapes3 = {-# SCC "createPossibilities.shapes3" #-} concat $ zipWith f shapes2 indexes
     f xs n = {-# SCC "createPossibilities.replicate" #-} replicate n xs
     shapes2 = {-# SCC "createPossibilities.shapes2" #-} fmap g shapes
+    genBitField2 = generateBitField width
     g shape = {-# SCC "createPossibilities.shapeOptions" #-} do
       p <- positions
       s <- generateRotationsFlips shape
-      return (p, s)
+      return $ genBitField2 p s
     positions = {-# SCC "createPossibilities.positions" #-} do
       x <- [0..maxW]
       y <- [0..maxH]
@@ -183,35 +190,16 @@ createPossibilities shapes (dims, indexes) = {-# SCC "createPossibilities" #-} c
 -- |
 -- generate all rotations and flips of this shape
 -- I tried drawing and seems that the only unique shapes are the original plus 3 rotations and their horizontal flips. Vertical flips will correspond to some horizontal flip.
-generateRotationsFlips :: Vector Point -> [Vector Point]
+generateRotationsFlips :: Shape -> [Shape]
 generateRotationsFlips shape = rotations ++ flips where
   rotations = take 4 $ iterate rotateRight shape
   flips = fmap flipHorizontal rotations
 
-checkListRegions :: Dimensions -> [(Point, Shape)] -> Bool
-checkListRegions dims xs = go (createEmptyRegion dims) xs where
-  go !_region [] = True
-  go !region ((p,shape):xs) = case maybeNewRegion of
-      Nothing -> False
-      Just !newRegion -> go newRegion xs
-    where
-      maybeNewRegion = putShapeInRegion dims region p shape
-
-putShapeInRegion :: Dimensions -> Area -> Point -> Shape -> Maybe Area
-putShapeInRegion (width, height) area topLeft@(x,y) shape
-  | (x + 3 > width) || (y + 3 > height) = error $ "A point was passed to putShapeInRegion which is out of bounds: " <> show topLeft
-  | shapeInAreaIsOccupied width area topLeft shape = Nothing
-  | otherwise = let !area' = setShapeInArea width area topLeft shape in Just area'
-
-shapeInAreaIsOccupied :: Int -> Area -> Point -> Shape -> Bool
-shapeInAreaIsOccupied width area topLeft shape = V.any f shape where
-  f p = area V.! (convertIndex width $ addPoint topLeft p)
-
-setShapeInArea :: Int -> Area -> Point -> Shape -> Area
-setShapeInArea width area topLeft shape = area' where
-  !area' = V.update area values
-  values = V.map f shape
-  f p = (convertIndex width $ addPoint topLeft p, True)
+checkListRegions :: Dimensions -> [Integer] -> Bool
+checkListRegions dims xs = go startArea xs where
+  startArea = 0
+  go _ [] = True
+  go area (x:xs) = if area .&. x == 0 then go (area .|. x) xs else False
 
 addPoint :: Point -> Point -> Point
 addPoint (a,b) (c,d) = (a+c,b+d)
@@ -236,7 +224,7 @@ parserShape = do
     return ys
   newline
   let zs = listImap (\j ys' -> listImap (\i b -> if b then Just (i,j) else Nothing) ys') xs
-  return $ V.fromList $ catMaybes $ concat zs
+  return $ catMaybes $ concat zs
 
 parserRegion :: Parser Region
 parserRegion = do
