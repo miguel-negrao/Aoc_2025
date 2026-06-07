@@ -127,6 +127,7 @@ treeT1 = Tree 1 (Seq.fromList [Tree 2 $ Seq.fromList [Leaf 3, Leaf 4], Tree 5 $ 
 
 treeT2 = bfsStopAt (> 8) treeT1
 
+-- | todo: I don't think I even have to keep the whole sequence I just need to keep the intermediate result
 bfsStopAtPath :: forall a. Show a => Int -> ((Seq a) -> Bool) -> Tree a -> Maybe (Seq a)
 bfsStopAtPath max pred tree = go 0 pred $ Seq.singleton (Seq.Empty, tree) where
   go :: Int -> (Seq a -> Bool) -> Seq (Seq a, Tree a) -> Maybe (Seq a)
