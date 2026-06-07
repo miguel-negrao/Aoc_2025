@@ -98,34 +98,27 @@ type Region = (Dimensions, [Index])
 
 type ParsedType = ([Shape], [Region])
 
+{--
+(0,0) (1,0) (2,0)
+(0,1) (1,1) (2,1)
+(0,2) (1,2) (2,2)
+--}
+
 rotateRight :: Shape -> Shape
 rotateRight xs = fmap f xs where
- f (0,0) = (1,0) 
- f (1,0) = (2,0)
- f (2,0) = (2,1)
- f (0,1) = (0,0) 
+ f (0,0) = (2,0) 
+ f (1,0) = (2,1)
+ f (2,0) = (2,2)
+ f (0,1) = (1,0) 
  f (1,1) = (1,1)
- f (2,1) = (2,2)
- f (0,2) = (0,1) 
- f (1,2) = (0,2)
- f (2,2) = (1,2)
+ f (2,1) = (1,2)
+ f (0,2) = (0,0) 
+ f (1,2) = (0,1)
+ f (2,2) = (0,2)
  f x = error $ "rotateRight doesn't accept input " <> show x
 
-flipVertical :: Shape -> Shape
-flipVertical xs = fmap f xs where
- f (0,0) = (2,0) 
- f (1,0) = (1,0)
- f (2,0) = (0,0)
- f (0,1) = (2,1) 
- f (1,1) = (1,1)
- f (2,1) = (0,1)
- f (0,2) = (2,2) 
- f (1,2) = (1,2)
- f (2,2) = (0,2)
- f x = error $ "flipVertical doesn't accept input " <> show x
-
-flipHorizontal :: Shape -> Shape
-flipHorizontal xs = fmap f xs where
+flipX :: Shape -> Shape
+flipX xs = fmap f xs where
  f (0,0) = (0,2) 
  f (1,0) = (1,2)
  f (2,0) = (2,2)
@@ -160,7 +153,7 @@ choices xs0 = {-# SCC "choices" #-} go xs0 where
 part1 :: ParsedType -> Int
 part1 (shapes, regions) = length $ trace ("part1: " <> show regionChecks <> "\n") filter id regionChecks where
   regionChecks = fmap f regions
-  f region@(dims, indexes) =  any (checkListRegions dims) $  createPossibilities shapes region
+  f region@(dims, indexes) =  any checkListRegions $  createPossibilities shapes region
 
 generateBitField :: Width -> Point -> Shape -> Integer
 generateBitField width topLeft shape = foldr g 0 indexes where
@@ -189,14 +182,14 @@ createPossibilities shapes (dims@(width, height), indexes) = {-# SCC "createPoss
 
 -- |
 -- generate all rotations and flips of this shape
--- I tried drawing and seems that the only unique shapes are the original plus 3 rotations and their horizontal flips. Vertical flips will correspond to some horizontal flip.
+-- I tried drawing and seems that the only unique shapes are the original plus 3 rotations and their horizontal flips. Vertical flips will correspond to some horizontal flip. There might be duplicates, remove.
 generateRotationsFlips :: Shape -> [Shape]
-generateRotationsFlips shape = rotations ++ flips where
+generateRotationsFlips shape = nub $ rotations ++ flips where
   rotations = take 4 $ iterate rotateRight shape
-  flips = fmap flipHorizontal rotations
+  flips = fmap flipX rotations
 
-checkListRegions :: Dimensions -> [Integer] -> Bool
-checkListRegions dims xs = go startArea xs where
+checkListRegions :: [Integer] -> Bool
+checkListRegions xs = go startArea xs where
   startArea = 0
   go _ [] = True
   go area (x:xs) = if area .&. x == 0 then go (area .|. x) xs else False
