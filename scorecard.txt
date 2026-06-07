@@ -9,4 +9,6 @@
 09 Y N
 10 Y N 
 11 Y Y
-12 Y N
+12 Y *
+
+* no star here

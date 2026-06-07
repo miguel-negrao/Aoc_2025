@@ -151,6 +151,11 @@ t3 = bfsStopAtPath 4 (\xs -> length xs == 3) treeT1
 -- >>> t3
 
 -- I love lazy data structures !!
+-- | this builds a tree like bi are buttons
+--            []
+--      b1              b2            ...    bn      
+--b1 b2 ..bn       b1 b2... bn            b1 b2 ... bn  
+--                      ...
 part1BuildList :: [[a]] -> Tree [a]
 part1BuildList xs = Tree [] $ go $ Seq.fromList xs where
   go xs = fmap f xs where
@@ -160,9 +165,7 @@ applyButtons :: Seq Bool -> Seq [Int] -> Seq Bool
 applyButtons xs ys = foldr f xs (concat $ toList ys) where
   f = Seq.adjust' not
 
--- e agora era para ter todos ligados ?
-
-processMachineV1 (Machine pattern buttons joltages) = case a of
+processMachineV1 (Machine pattern buttons _) = case a of
       Just ys -> Seq.length ys - 1 -- trace ("ys = " <> show ys) $ 
       Nothing -> error "part1 cannot find solution"
     where 
@@ -176,8 +179,30 @@ part1 :: ParsedType -> Int
 part1 xs = (sum smallestSets) where -- trace ("smallestSets = " <> show smallestSets) 
   smallestSets = fmap processMachineV1 xs
 
-part2 = undefined
 
+part2 :: ParsedType -> Int
+part2 machines = sum $ fmap part2MinimumNumberOfButtonPresses machines
+
+part2MinimumNumberOfButtonPresses :: Machine -> Int
+part2MinimumNumberOfButtonPresses (Machine _ buttons joltages) = case a of
+      Just ys -> Seq.length ys - 1 -- trace ("ys = " <> show ys) $ 
+      Nothing -> error "part1 cannot find solution"
+    where
+      startPattern = Seq.replicate (length joltages) 0
+      buttons' = Seq.fromList $ (fmap Seq.fromList) buttons
+      a = bfsStopAtPath 1000 pred $ part2BuildList buttons'
+      seqJoltages = Seq.fromList joltages
+      pred xs = applyButtonsPart2 startPattern xs == seqJoltages
+
+part2BuildList :: Seq (Seq a) -> Tree (Seq a)
+part2BuildList xs = Tree Seq.empty $ go xs where
+  go xs = fmap f xs where
+    f x = Tree x $ go xs
+
+applyButtonsPart2 :: Seq Int -> Seq (Seq Int) -> Seq Int
+applyButtonsPart2 startJoltages buttons = foldr f startJoltages buttons where
+  f button joltages = foldr sumAt joltages button
+  sumAt i counters = Seq.adjust' (+1) i counters
 
 -- Tests
 
