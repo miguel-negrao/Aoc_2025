@@ -20,6 +20,7 @@ used chatgpt: yes: get documentation of Seq quickly; to find equivalent of conca
 notes: knowing sepEndBy and between, parsing becomes easy. Initial idea is to form a Tree of choices of button pressing and then travel the tree in breadth-first keeping track of the node traveled to get to each node, and stop once the sequence gives the necessary result. 5.631 s ± 746 ms is a bit too slow.
 V2 keeps intermediate results in tree
 V3 uses bit field, now that is much better
+v4 uses Z3 similarly to part 2, it's 10x faster than my hand made solution
 
 v1
   part1 without parsing: OK
@@ -36,10 +37,15 @@ v3 bit field
     3.250 s ± 102 ms
   part1 with parsing:    OK
     3.133 s ± 123 ms
+v4
+  part1v4 SBV without parsing: OK
+    344  ms ±  23 ms
+  part1 SBV with parsing:      OK
+    341  ms ± 5.3 ms
 
 part2
 time:
-attempts:
+attempts: 1
 used chatgpt: For v2 yes, to research a bit linear systems, linear programming and linear programming libraries for Haskell.
 notes: The first approach was just to re-use the code from part 1. That attempt is still not finished, it is blowing up.
 
@@ -101,6 +107,7 @@ module AoC
     ( Parser
     , parser
     , part1
+    , part1v4
     , part2
     , part2v2
     , ParsedType
@@ -289,22 +296,57 @@ processMachineV3 (Machine pattern buttons _) =  case res of
       intPattern =  foldr (\(i, isOn) x -> if isOn then setBit x i else clearBit x i) 0 $ zip [0..] pattern
       f pattern button = let b' = pattern `xor` button in (b', b' == intPattern)
 
+-- Using SBV 
+
+part1v4 :: ParsedType ->  IO Integer
+part1v4 machines = do
+  solutions <- traverse part1ProcessMachinev4 machines
+  --print solutions
+  return $ sum solutions
+
+bToI :: Num a => Bool -> a
+bToI True = 1
+bToI False = 0
+
+-- |
+-- We just state the problem and let Z3 figure it out.
+-- This stuff is mind blowing !
+part1ProcessMachinev4 :: Machine -> IO Integer
+part1ProcessMachinev4 (Machine lights buttons _) = do  
+  let 
+    -- list of columns
+    butCols = fmap (buttonToColumn (length lights)) buttons
+    -- list of lines
+    lines = transpose butCols
+  res <- optLexicographic $ do
+    -- create strings for buttons b1 ... bn and create SBV variables
+    bs <- traverse (\i -> sInteger $ "b" <> show i) [1..(length buttons)]
+    -- number of button presses is non-negative
+    forM_ bs $ \b -> constrain $ b .>= 0
+    -- Apply matrix multiplication
+    let 
+      toLiterals = fmap (literal . toInteger)
+      f line light = constrain $  (sum (zipWith (*) bs (toLiterals line))) `sMod` 2  .== light 
+    sequence_ $ zipWith f lines (toLiterals (bToI <$> lights))
+    minimize "sum" (sum bs)
+  case getModelValue "sum" res :: Maybe Integer of
+    Just a -> return a
+    Nothing -> error "no solution for machine"
+
 -- | right now test doesn't even find the right answer and need to check if I'm keeping the intermediate calculations
 part2 :: ParsedType -> Int
 part2 machines = sum $ fmap part2MinimumNumberOfButtonPresses machines
 
 part2MinimumNumberOfButtonPresses :: Machine -> Int
-part2MinimumNumberOfButtonPresses (Machine _ buttons joltages) = trace (show (length buttons) <> " " <> show (length joltages)) 0
-
--- case a of
---       Just ys -> Seq.length ys - 1 -- trace ("ys = " <> show ys) $ 
---       Nothing -> error "part1 cannot find solution"
---     where
---       startPattern = Seq.replicate (length joltages) 0
---       buttons' = Seq.fromList $ (fmap Seq.fromList) buttons
---       a = bfsStopAtPath 1000 pred $ part2BuildList buttons'
---       seqJoltages = Seq.fromList joltages
---       pred xs = applyButtonsPart2 startPattern xs == seqJoltages
+part2MinimumNumberOfButtonPresses (Machine _ buttons joltages) = case a of
+      Just ys -> Seq.length ys - 1 -- trace ("ys = " <> show ys) $ 
+      Nothing -> error "part1 cannot find solution"
+    where
+      startPattern = Seq.replicate (length joltages) 0
+      buttons' = Seq.fromList $ (fmap Seq.fromList) buttons
+      a = bfsStopAtPath 10000 pred $ part2BuildList buttons'
+      seqJoltages = Seq.fromList joltages
+      pred xs = applyButtonsPart2 startPattern xs == seqJoltages
 
 part2BuildList :: Seq (Seq a) -> Tree (Seq a)
 part2BuildList xs = Tree Seq.empty $ go xs where

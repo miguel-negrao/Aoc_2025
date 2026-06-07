@@ -1,6 +1,6 @@
 module Main (main) where
 
-import AoC (parser, part1, part2, part2v2)
+import AoC
 import qualified Data.Text.IO as TIO
 import Test.Tasty.Bench (bench, defaultMain, nf, nfIO)
 import Text.Megaparsec (errorBundlePretty, parse)
@@ -18,7 +18,9 @@ main = do
         Right parsed ->
             defaultMain
                 [ --bench "part1 without parsing" $ nf part1 parsed
-                 bench "part2 SBV without parsing" $ nfIO $ part2v2 parsed
+                 bench "part1v4 SBV without parsing" $ nfIO $ part1v4 parsed
+                , bench "part2v2 SBV without parsing" $ nfIO $ part2v2 parsed
                 --, bench "part1 with parsing" $ nf (parseAndRun part1) input
+                , bench "part1 SBV with parsing" $ nfIO $ (parseAndRun part1v4) input
                 , bench "part2 SBV with parsing" $ nfIO $ (parseAndRun part2v2) input
                 ]
