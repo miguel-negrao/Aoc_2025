@@ -40,9 +40,61 @@ v3 bit field
 part2
 time:
 attempts:
-used chatgpt: no
-notes:
+used chatgpt: For v2 yes, to research a bit linear systems, linear programming and linear programming libraries for Haskell.
+notes: The first approach was just to re-use the code from part 1. That attempt is still not finished, it is blowing up.
 
+Looking better at it seemed to me it is solving a linear system but where the solution must have integer coeficients. each button is a column of a matrix, where if the button increments counter i then it has 1 in the matrix.
+
+(3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}
+b0  b1    b2  b3    b4    b5    
+b0 b2 ... b5 is the number of times to press each button
+
+000011 b0 = 3
+010001 b1   5
+001110 b2   4
+110100 b3   7
+       b4
+       b5
+
+I'm trying to find  x = [b0 b1 b2 b3 b4 b5]^t which solves Ax = b and minimizes Sum in i of bi. 
+
+Searching the internet a bit, it seemed this was a linear programming problem. Asked ChatGPT what are good packages for linear programming in Haskell, but
+she suggested it might be easier to just give the problem to SBV, which I already new and I thought it is very cool. So I thought this was a good opportunity to
+learn a bit more of SBV and SMT solvers. 
+
+ChatGPT gave me this code to understand how the system works, and I converted it to the full matrix system I have.
+
+import Data.SBV
+
+main :: IO ()
+main = do
+  res <- optimize Lexicographic $ do
+    x1 <- sInteger "x1"
+    x2 <- sInteger "x2"
+    x3 <- sInteger "x3"
+    x4 <- sInteger "x4"
+    x5 <- sInteger "x5"
+    x6 <- sInteger "x6"
+
+    let xs = [x1, x2, x3, x4, x5, x6]
+
+    -- Natural numbers, allowing 0
+    mapM_ (\x -> constrain $ x .>= 0) xs
+
+    constrain $ x1 + x2 + x4      .== 7
+    constrain $      x2      + x6 .== 5
+    constrain $ x3 + x4 + x5      .== 4
+    constrain $           x5 + x6 .== 3
+
+    minimize "sum" (sum xs)
+
+  print res
+
+  It's fast !
+  part2 SBV without parsing: OK
+    333  ms ±  14 ms
+  part2 SBV with parsing:    OK
+    329  ms ±  32 ms
 --}
 
 module AoC
@@ -50,6 +102,7 @@ module AoC
     , parser
     , part1
     , part2
+    , part2v2
     , ParsedType
     ) where
 
@@ -86,6 +139,7 @@ import Text.Megaparsec.Debug
 import Math.Combinat.Sets (combine, choose)
 import Data.Ord (Down(..))
 import Data.Bits
+import Data.SBV hiding (some)
 
 -- by ChatGPT
 newtype OnePerLine a = OnePerLine [a]
@@ -154,7 +208,6 @@ bfsStopAtPath max pred tree = go 0 pred $ Seq.singleton (Seq.Empty, tree) where
     -- add all branches of this tree to the list of nodes to process
     | otherwise = go (n + 1) pred $ xs Seq.>< (fmap (\b -> (zs Seq.|> a, b)) ys)
 
-
 part1 = part1v1
 
 part1v1 :: ParsedType -> Int
@@ -201,7 +254,7 @@ processMachineV2 (Machine pattern buttons _) =  case res of
     where
       startPattern = Seq.replicate (length pattern) False 
       buttons' = Seq.fromList $ fmap Seq.fromList buttons
-      res = bfsStopAtPath2 startPattern 100000000 f $ part1BuildList Seq.empty buttons'
+      res = bfsFoldStop startPattern 100000000 f $ part1BuildList Seq.empty buttons'
       seqPattern = Seq.fromList pattern
       f pattern button = let b' = foldr (Seq.adjust' not) pattern button in (b', b' == seqPattern)
 
@@ -241,15 +294,17 @@ part2 :: ParsedType -> Int
 part2 machines = sum $ fmap part2MinimumNumberOfButtonPresses machines
 
 part2MinimumNumberOfButtonPresses :: Machine -> Int
-part2MinimumNumberOfButtonPresses (Machine _ buttons joltages) = case a of
-      Just ys -> Seq.length ys - 1 -- trace ("ys = " <> show ys) $ 
-      Nothing -> error "part1 cannot find solution"
-    where
-      startPattern = Seq.replicate (length joltages) 0
-      buttons' = Seq.fromList $ (fmap Seq.fromList) buttons
-      a = bfsStopAtPath 1000 pred $ part2BuildList buttons'
-      seqJoltages = Seq.fromList joltages
-      pred xs = applyButtonsPart2 startPattern xs == seqJoltages
+part2MinimumNumberOfButtonPresses (Machine _ buttons joltages) = trace (show (length buttons) <> " " <> show (length joltages)) 0
+
+-- case a of
+--       Just ys -> Seq.length ys - 1 -- trace ("ys = " <> show ys) $ 
+--       Nothing -> error "part1 cannot find solution"
+--     where
+--       startPattern = Seq.replicate (length joltages) 0
+--       buttons' = Seq.fromList $ (fmap Seq.fromList) buttons
+--       a = bfsStopAtPath 1000 pred $ part2BuildList buttons'
+--       seqJoltages = Seq.fromList joltages
+--       pred xs = applyButtonsPart2 startPattern xs == seqJoltages
 
 part2BuildList :: Seq (Seq a) -> Tree (Seq a)
 part2BuildList xs = Tree Seq.empty $ go xs where
@@ -260,6 +315,65 @@ applyButtonsPart2 :: Seq Int -> Seq (Seq Int) -> Seq Int
 applyButtonsPart2 startJoltages buttons = foldr f startJoltages buttons where
   f button joltages = foldr sumAt joltages button
   sumAt i counters = Seq.adjust' (+1) i counters
+
+buttonToColumn :: Int -> [Int] -> [Int]
+buttonToColumn n xs = [ if i `elem` xs then 1 else 0 | i <- [0..(n-1)]] 
+
+-- Using SBV 
+
+part2v2 :: ParsedType ->  IO Integer
+part2v2 machines = do
+  solutions <- traverse part2ProcessMachinev2 machines
+  --print solutions
+  return $ sum solutions
+
+-- |
+-- We just state the problem and let Z3 figure it out.
+-- This stuff is mind blowing !
+part2ProcessMachinev2 :: Machine -> IO Integer
+part2ProcessMachinev2 (Machine _ buttons joltages) = do  
+  let 
+    -- list of columns
+    butCols = fmap (buttonToColumn (length joltages)) buttons
+    -- list of lines
+    lines = transpose butCols
+  res <- optLexicographic $ do
+    -- create strings for buttons b1 ... bn and create SBV variables
+    bs <- traverse (\i -> sInteger $ "b" <> show i) [1..(length buttons)]
+    -- number of button presses is non-negative
+    forM_ bs $ \b -> constrain $ b .>= 0
+    -- Apply matrix multiplication
+    let 
+      toLiterals = fmap (literal . toInteger)
+      f line joltage = constrain $ sum (zipWith (*) bs (toLiterals line))  .== joltage 
+    sequence_ $ zipWith f lines (toLiterals joltages)
+    minimize "sum" (sum bs)
+  case getModelValue "sum" res :: Maybe Integer of
+    Just a -> return a
+    Nothing -> error "no solution for machine"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 -- Tests
 
