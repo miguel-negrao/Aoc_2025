@@ -118,7 +118,7 @@ solve2x2 a@((a1,b1),(a2,b2)) c@(c1,c2) = if det /= 0 then Just res else Nothing 
     res = solve2x2' a c det
 
 {--
-(with help from chatgpt)
+(math help from chatgpt)
 
 Obtain a general equation of a line on the plane
 
