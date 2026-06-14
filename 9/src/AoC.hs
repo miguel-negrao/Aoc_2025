@@ -147,9 +147,15 @@ isInRect :: (Ord a1, Ord a2) => ((a1, a2), (a1, a2)) -> (a1, a2) -> Bool
 isInRect ((x1,y1), (x2,y2)) (x3,y3) = test x1 x2 x3 && test y1 y2 y3 where 
     test x1 x2 x3 = if x1 <= x2 then (x1 <= x3 && x3 <= x2) else (x2 <= x3 && x3 <= x1)
 
-intersectsInOnePoint :: (Ord a2, Fractional a2) => ((a2, a2), (a2, a2)) -> ((a2, a2), (a2, a2)) -> Bool
-intersectsInOnePoint a@((x1,y1), (x2,y2)) b@((x3,y3), (x4,y4)) = case sol of
-        Just p -> isInRect a p && isInRect b p
+intersectsAtInteriorPoint :: (Ord a2, Fractional a2) => ((a2, a2), (a2, a2)) -> ((a2, a2), (a2, a2)) -> Bool
+intersectsAtInteriorPoint a@(p1, p2) b@(p3, p4)
+    | p1 == p2 = error "intersectsAtInteriorPoint: first segment has identical endpoints"
+    | p3 == p4 = error "intersectsAtInteriorPoint: second segment has identical endpoints"
+    | otherwise = case sol of
+        Just p
+            | not (isInRect a p && isInRect b p) -> False
+            | p == p1 || p == p2 || p == p3 || p == p4 -> False
+            | otherwise -> True
         Nothing -> False
     where
         sol = solve2x2 (lineIntersectionMatrix a b) (lineIntersectionConstants a b)
