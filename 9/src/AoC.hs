@@ -18,8 +18,10 @@ notes: very easy, was very similar to day 8. This means part 2 will be hard!
 part2
 time:
 attempts:
-used chatgpt: no
+used chatgpt: yes, to research computacional geometry alrightms in general, but also wikipedia.
 notes:
+I decided to first research a bit the algorithms used for this, as this seemed a bit too far away from the usual CS algorithms.
+For checking weather one poligon contains the other math stack exchange suggested check if any of the edges of the 2 polygons intersect and then check if one point of one polygon is inside the other.
 
 --}
 
@@ -91,6 +93,20 @@ area (x1,y1) (x2,y2) = (abs dx + 1) * (abs dy + 1) where
 part1 :: ParsedType -> Int
 part1 xs =  head $ sortOn Down $ fmap (uncurry area) ((\[a,b] -> (a,b)) <$> choose 2 xs)
 
+
+det2x2 :: Num a => ((a,a),(a,a)) -> a
+det2x2 ((a1,b1), (a2,b2)) = a1*b2 - a2*b1
+
+-- |
+-- Cramers rule
+solve2x2 :: (Fractional a, Eq a) => ((a,a),(a,a)) -> (a,a) -> Maybe (a,a)
+solve2x2 a@((a1,b1),(a2,b2)) (c1,c2) = if det /= 0 then Just res else Nothing where
+    det = det2x2 a
+    res = ( (c1*b2-b1*c2) / det, (a1*c2 - c1 * a2) / det )
+
+intersectsInOnePoint ((a1,b1), (a2,b2)) = undefined
+
+part2 :: a
 part2 = undefined
 
 
