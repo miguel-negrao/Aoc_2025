@@ -31,6 +31,9 @@ module AoC
     , part1
     , part2
     , ParsedType
+    , det2x2
+    , solve2x2'
+    , solve2x2
     ) where
 
 import Data.List
@@ -99,12 +102,40 @@ det2x2 ((a1,b1), (a2,b2)) = a1*b2 - a2*b1
 
 -- |
 -- Cramers rule
-solve2x2 :: (Fractional a, Eq a) => ((a,a),(a,a)) -> (a,a) -> Maybe (a,a)
-solve2x2 a@((a1,b1),(a2,b2)) (c1,c2) = if det /= 0 then Just res else Nothing where
-    det = det2x2 a
-    res = ( (c1*b2-b1*c2) / det, (a1*c2 - c1 * a2) / det )
+solve2x2' :: Fractional a => ((a,a),(a,a)) -> (a,a) -> a -> (a,a)
+solve2x2' a@((a1,b1),(a2,b2)) (c1,c2) det = ( (c1*b2-b1*c2) / det, (a1*c2 - c1 * a2) / det )
 
-intersectsInOnePoint ((a1,b1), (a2,b2)) = undefined
+-- |
+-- Cramers rule
+solve2x2 :: (Fractional a, Eq a) => ((a,a),(a,a)) -> (a,a) -> Maybe (a,a)
+solve2x2 a@((a1,b1),(a2,b2)) c@(c1,c2) = if det /= 0 then Just res else Nothing where
+    det = det2x2 a
+    res = solve2x2' a c det
+
+{--
+(with help from chatgpt)
+
+vector from p1 to p2
+P1 -> P2      = (x2 - x1, y2 - y1)
+vector from p1 to arbitrary point (w,z)
+P1 -> (w,z)   = (w - x1, z - y1)
+
+for (w,z) to be on the line the vectors must be parallel,
+can be checked by determinant of vectors as lines of matrix is zero
+
+| x2 - x1    y2 - y1 |
+| w  - x1    z  - y1 | = 0
+
+(y2 - y1)*w + (x1 - x2)*z = x1*y2 - x2*y1
+
+
+--}
+intersectsInOnePoint :: ((a1, b1), (a2, b2)) -> ((a3, b3), (a4, b4)) -> Bool
+intersectsInOnePoint ((x1,y1), (x2,y2)) ((x3,y3), (x4,y4)) = case sol of
+        Just (x,y) -> undefined
+        Nothing -> False
+    where
+        sol = solve2x2 undefined undefined
 
 part2 :: a
 part2 = undefined
