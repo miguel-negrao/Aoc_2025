@@ -18,7 +18,7 @@ notes: very easy, was very similar to day 8. This means part 2 will be hard!
 part2
 time:
 attempts:
-used chatgpt: yes, to research computacional geometry alrightms in general, but also wikipedia.
+used chatgpt: yes, to research computacional geometry alrightms in general, but also wikipedia. ChatGPT as used to help create sbv proofs of correctness for my hand-coded functions. 
 notes:
 I decided to first research a bit the algorithms used for this, as this seemed a bit too far away from the usual CS algorithms.
 For checking weather one poligon contains the other math stack exchange suggested check if any of the edges of the 2 polygons intersect and then check if one point of one polygon is inside the other.
@@ -34,6 +34,8 @@ module AoC
     , det2x2
     , solve2x2'
     , solve2x2
+    , lineIntersectionMatrix
+    , lineIntersectionConstants
     ) where
 
 import Data.List
@@ -133,6 +135,13 @@ can be checked by determinant of vectors as lines of matrix is zero
 
 (y2 - y1)*w + (x1 - x2)*z = x1*y2 - x2*y1
 --}
+lineIntersectionMatrix :: Num a => ((a, a), (a, a)) -> ((a, a), (a, a)) -> ((a, a), (a, a))
+lineIntersectionMatrix ((x1, y1), (x2, y2)) ((x3, y3), (x4, y4)) =
+    ((y2 - y1, x1-x2), (y4 - y3, x3 - x4))
+
+lineIntersectionConstants :: Num a => ((a, a), (a, a)) -> ((a, a), (a, a)) -> (a, a)
+lineIntersectionConstants ((x1, y1), (x2, y2)) ((x3, y3), (x4, y4)) =
+    (x1 * y2 - x2 * y1, x3 * y4 - x4 * y3)
 
 isInRect :: (Ord a1, Ord a2) => ((a1, a2), (a1, a2)) -> (a1, a2) -> Bool
 isInRect ((x1,y1), (x2,y2)) (x3,y3) = test x1 x2 x3 && test y1 y2 y3 where 
@@ -143,7 +152,7 @@ intersectsInOnePoint a@((x1,y1), (x2,y2)) b@((x3,y3), (x4,y4)) = case sol of
         Just p -> isInRect a p && isInRect b p
         Nothing -> False
     where
-        sol = solve2x2 ((x2 - x1 , y2 - y1),(x4 - x3 , y4 - y3)) (x1*y2 - x2*y1, x3*y4 - x4*y3)
+        sol = solve2x2 (lineIntersectionMatrix a b) (lineIntersectionConstants a b)
 
 part2 :: a
 part2 = undefined
