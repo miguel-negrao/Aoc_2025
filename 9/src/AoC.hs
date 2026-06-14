@@ -74,7 +74,8 @@ instance Show a => Show (OnePerLine a) where
 type Parser = Parsec Void Text
 
 type V2 = (Int,Int)
-type ParsedType = [V2]
+type Polygon = [V2]
+type ParsedType = Polygon
 
 pNumber :: forall a. Read a => Parser a
 pNumber = read <$> some digitChar
