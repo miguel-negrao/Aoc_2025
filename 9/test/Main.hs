@@ -48,11 +48,11 @@ main = defaultMain $ testGroup "AoC5"
     , testCase "parametric segment intersection implies nonzero determinant (Z3)" $ do
         result <- SBV.prove parametricIntersectionImpliesNonzeroDeterminant
         assertBool (show result) (proved result)
-    -- , testCase "part2 example" $ do
-    --     input <- TIO.readFile "test_input"
-    --     case parse parser "test_input" input of
-    --         Left err -> assertFailure (show err)
-    --         Right parsed -> assertEqual "part2" 25272 (part2 parsed)
+    , testCase "part2 example" $ do
+        input <- TIO.readFile "test_input"
+        case parse parser "test_input" input of
+            Left err -> assertFailure (show err)
+            Right parsed -> assertEqual "part2" 24 (part2 parsed)
     ]
 
 proved :: SBV.ThmResult -> Bool

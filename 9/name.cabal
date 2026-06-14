@@ -18,7 +18,15 @@ library
   exposed-modules:    AoC
   hs-source-dirs:     src
   build-depends:       base >=4.9 && < 4.23,
-                       text, errors, megaparsec, pretty-simple, parallel, containers, data-memocombinators, combinat
+                       text
+                       , errors
+                       , megaparsec
+                       , pretty-simple
+                       , parallel
+                       , containers
+                       , data-memocombinators
+                       , combinat
+                       , lens
   default-language:    Haskell2010
 
 executable prog

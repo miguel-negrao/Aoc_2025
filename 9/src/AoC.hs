@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE TypeApplications #-}
 {- HLINT ignore "Unused LANGUAGE pragma" -}
 
 {--
@@ -55,13 +56,14 @@ import qualified Data.MemoCombinators as Memo
 import Data.MemoCombinators (Memo)
 import Data.Map (Map)
 import qualified Data.Map as Map
--- import Control.Lens
+import Control.Lens
 import Data.Maybe (catMaybes, fromMaybe)
 import Control.Monad
 import Text.Megaparsec.Debug
 
 import Math.Combinat.Sets (combine, choose)
 import Data.Ord (Down(..))
+import GHC.Base (leInt)
 
 -- by ChatGPT
 newtype OnePerLine a = OnePerLine [a]
@@ -73,14 +75,14 @@ instance Show a => Show (OnePerLine a) where
 
 type Parser = Parsec Void Text
 
-type V2 = (Int,Int)
-type Polygon = [V2]
+type Point = (Int,Int)
+type Polygon = [Point]
 type ParsedType = Polygon
 
 pNumber :: forall a. Read a => Parser a
 pNumber = read <$> some digitChar
 
-pNumberLine :: Parser V2
+pNumberLine :: Parser Point
 pNumberLine = do
     x <- pNumber
     char ','
@@ -97,8 +99,14 @@ area (x1,y1) (x2,y2) = (abs dx + 1) * (abs dy + 1) where
   dy = y1 - y2
 
 part1 :: ParsedType -> Int
-part1 xs =  head $ sortOn Down $ fmap (uncurry area) ((\[a,b] -> (a,b)) <$> choose 2 xs)
+part1 xs =  case ys of
+        (y:_) -> y
+        _ -> 0
+    where
+        ys = sortOn Down $ fmap (uncurry area) ((\[a,b] -> (a,b)) <$> choose 2 xs)
 
+pointSum :: Num a => (a,a) -> (a,a) -> (a,a)
+pointSum (x1,y1) (x2,y2) = (x1+x2,y1+y2)
 
 det2x2 :: Num a => ((a,a),(a,a)) -> a
 det2x2 ((a1,b1), (a2,b2)) = a1*b2 - a2*b1
@@ -113,6 +121,7 @@ solve2x2' a@((a1,b1),(a2,b2)) (c1,c2) det = ( (c1*b2-b1*c2) / det, (a1*c2 - c1 *
 
 -- |
 -- Cramers rule
+-- Returns a unique solution if it exists. If there are many solutions or no solution returns Nothing.
 solve2x2 :: (Fractional a, Eq a) => ((a,a),(a,a)) -> (a,a) -> Maybe (a,a)
 solve2x2 a@((a1,b1),(a2,b2)) c@(c1,c2) = if det /= 0 then Just res else Nothing where
     det = det2x2 a
@@ -144,26 +153,139 @@ lineIntersectionConstants :: Num a => ((a, a), (a, a)) -> ((a, a), (a, a)) -> (a
 lineIntersectionConstants ((x1, y1), (x2, y2)) ((x3, y3), (x4, y4)) =
     (x1 * y2 - x2 * y1, x3 * y4 - x4 * y3)
 
-isInRect :: (Ord a1, Ord a2) => ((a1, a2), (a1, a2)) -> (a1, a2) -> Bool
-isInRect ((x1,y1), (x2,y2)) (x3,y3) = test x1 x2 x3 && test y1 y2 y3 where 
-    test x1 x2 x3 = if x1 <= x2 then (x1 <= x3 && x3 <= x2) else (x2 <= x3 && x3 <= x1)
 
-intersectsAtInteriorPoint :: (Ord a2, Fractional a2) => ((a2, a2), (a2, a2)) -> ((a2, a2), (a2, a2)) -> Bool
-intersectsAtInteriorPoint a@(p1, p2) b@(p3, p4)
-    | p1 == p2 = error "intersectsAtInteriorPoint: first segment has identical endpoints"
-    | p3 == p4 = error "intersectsAtInteriorPoint: second segment has identical endpoints"
+isInInterval :: Ord a => a -> a -> a -> Bool
+isInInterval x1 x2 x3 = if x1 <= x2 then (x1 <= x3 && x3 <= x2) else (x2 <= x3 && x3 <= x1)
+
+isInRect :: (Ord a1, Ord a2) => ((a1, a2), (a1, a2)) -> (a1, a2) -> Bool
+isInRect ((x1,y1), (x2,y2)) (x3,y3) = isInInterval x1 x2 x3 && isInInterval y1 y2 y3
+
+lineSegmentsIntersectAtInteriorPoint :: (Ord a2, Fractional a2, Show a2) => ((a2, a2), (a2, a2)) -> ((a2, a2), (a2, a2)) -> Bool
+lineSegmentsIntersectAtInteriorPoint a@(p1, p2) b@(p3, p4)
+    | p1 == p2 = error $ "lineSegmentsIntersectAtInteriorPoint: first segment has identical endpoints: " <> show p1 <> " " <> show p2
+    | p3 == p4 = error "lineSegmentsIntersectAtInteriorPoint: second segment has identical endpoints"
     | otherwise = case sol of
+        -- Unique solution
         Just p
-            | not (isInRect a p && isInRect b p) -> False
             | p == p1 || p == p2 || p == p3 || p == p4 -> False
+            | not (isInRect a p && isInRect b p) -> False
             | otherwise -> True
+        -- No solution or multiple solutions
         Nothing -> False
     where
         sol = solve2x2 (lineIntersectionMatrix a b) (lineIntersectionConstants a b)
 
-part2 :: a
-part2 = undefined
 
+
+lineSegmentIntersectsHalfRayGoingRight :: (Ord a, Fractional a) => (a,a) -> ((a, a), (a, a)) -> Bool
+lineSegmentIntersectsHalfRayGoingRight p3@(x3,_) a@(p1, p2)
+    | p1 == p2 = error "lineSegmentsIntersectAtInteriorPoint: first segment has identical endpoints"
+    | otherwise = case sol of
+        -- Unique solution
+        Just (p@(x,y))
+            | p == p1 || p == p2 || p == p3 -> False
+            | not (isInRect a p && x3 < x ) -> False
+            | otherwise -> True
+        -- No solution or multiple solutions
+        Nothing -> False
+    where
+        b = (p3, pointSum p3 (1,0)) 
+        sol = solve2x2 (lineIntersectionMatrix a b) (lineIntersectionConstants a b)
+
+
+verticesToEdges :: [a] -> [(a, a)]
+verticesToEdges xs = zipWith f xs (drop 1 $ cycle xs) where
+    n = length xs
+    f a b = (a,b)
+
+toRational' :: Integral a => a -> Rational
+toRational' = fromIntegral
+
+intToRational :: Int -> Rational
+intToRational = fromIntegral
+
+-- |
+-- Rational should not have precision problems, but maybe too slow.
+polygonEdgesProperlyIntersect :: Polygon -> Polygon -> Bool
+polygonEdgesProperlyIntersect vertices_a vertices_b = not $ null intesectingEdges where
+    (edges_a, edges_b) = over each f (vertices_a, vertices_b)
+    f = verticesToEdges . over (traversed.each) intToRational
+    intesectingEdges = do
+        edge_a <- edges_a
+        edge_b <- edges_b
+        guard $ lineSegmentsIntersectAtInteriorPoint edge_a edge_b
+        return (edge_a, edge_b)
+
+-- |
+-- 1. Shoot half ray from point in any direction, for instance along the X axis.
+-- 2. Count how many times it crosses an edge of the polygon P 
+-- 3. if the result is even then it is outside, if it is odd it is inside.
+-- ChatGPT figure:
+-- Inside example:
+--                         polygon P
+--                      +------------+
+--                     /              \
+--                    /                \
+--                   /                  \
+--                  +                    +
+--                  |                    |
+--                  |        p ----------+-----------> half-ray along +X
+--                  |             x1     |
+--                  |                    |
+--                  +--------------------+
+--
+--
+--      outside example:
+--
+--                         polygon P
+--                      +-------------+
+--                     /               \
+--                    /                 \
+--                   /                   \
+--          p ------+---------------------+---------->
+--                  |                     |
+--                  |                     |    
+--                  |                     |             
+--                  |                     |
+--                  +---------------------+
+--                  
+pointInPolygon :: Polygon -> Point -> Bool
+pointInPolygon vertices p = odd numberOfCrossings where
+    -- todo: calculate only once
+    edges = verticesToEdges . over (traversed.each) intToRational $ vertices
+    p' = over both intToRational p
+    numberOfCrossings = length $ filter f edges
+    f edge = lineSegmentIntersectsHalfRayGoingRight p' edge
+
+-- |
+-- After tring a couple of times on my own, I didn't manage to find a criteria that worked, so I asked ChatGPT for help:
+-- 1. Every vertex of A must be inside-or-on B.
+-- 2. No edge of A may strictly/properly cross an edge of B.
+-- 3. Ignore boundary touches and collinear overlaps.
+-- Todo: check in SBV
+polygonInsidePolygonTouchingOk :: Polygon -> Polygon -> Bool
+polygonInsidePolygonTouchingOk a@(a1:a2:a3:_) b@(b1:b2:b3:_) = everyVerticeOfAinsideB && not (polygonEdgesProperlyIntersect a b) where
+    everyVerticeOfAinsideB = all (pointInPolygon b) a
+polygonInsidePolygonTouchingOk _ _ = error "polygonInsidePolygonTouchingOk: Both polygons must have 3 vertices"
+
+--  a +-------------+ c
+--    |             |
+--  d +-------------+ b
+makeRectangle a@(x1,y1) b@(x2,y2) = [a,b,c,d] where
+    c = (x1,y2)   
+    d = (x2,y1)
+
+part2 :: Polygon -> Int
+part2 points = case areas of
+        (x:_) -> x
+        _ -> 0
+    where
+        rectanglesInsidePolygon = do
+            v <- points
+            w <- points
+            guard $ v /= w && polygonInsidePolygonTouchingOk (makeRectangle v w) points
+            return (v,w)
+        areas = sortOn Down $ fmap (uncurry area) rectanglesInsidePolygon
 
 -- Tests
 
