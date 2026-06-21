@@ -290,9 +290,8 @@ pointInPolygon edges p = odd numberOfCrossings where
     numberOfCrossings = length $ filter f edges
     f edge = lineSegmentIntersectsHalfRayGoingRight p' edge
 
-
-memoPointInPolygon edges p = memoIntegralPoint g p where
-    g p = odd numberOfCrossings where
+memoPointInPolygon edges p = memoIntegralPoint memoPointInPolygon' p where
+    memoPointInPolygon' p = odd numberOfCrossings where
         p' = over both intToDouble p
         numberOfCrossings = length $ filter f edges
         f edge = lineSegmentIntersectsHalfRayGoingRight p' edge
