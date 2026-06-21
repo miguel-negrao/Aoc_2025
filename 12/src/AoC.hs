@@ -41,7 +41,6 @@ module AoC
     ( Parser
     , parser
     , part1
-    , part2
     , ParsedType
     ) where
 
@@ -299,12 +298,6 @@ parser = do
   shapes <- some (try parserShape)
   regions <- some parserRegion
   return (shapes, regions)
-
-
-
-part2 = undefined
-
-
 
 
 
