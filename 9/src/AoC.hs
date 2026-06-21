@@ -305,7 +305,7 @@ memoPointInPolygon edges p = memoIntegralPoint memoPointInPolygon' p where
 
 -- |
 -- After tring a couple of times on my own, I didn't manage to find a criteria that worked, so I asked ChatGPT for help:
--- 1. Every vertex of A must be inside-or-on BintToRational.
+-- 1. Every vertex of A must be inside-or-on B.
 -- 2. No edge of A may strictly/properly cross an edge of B.
 -- 3. Ignore boundary touches and collinear overlaps.
 -- Todo: check in SBV

@@ -48,6 +48,12 @@ main = defaultMain $ testGroup "AoC5"
     , testCase "parametric segment intersection implies nonzero determinant (Z3)" $ do
         result <- SBV.prove parametricIntersectionImpliesNonzeroDeterminant
         assertBool (show result) (proved result)
+    , testCase "proof: generic rectangle pointInPolygon (Z3)" $ do
+        result <- SBV.prove symbolicPointInPolygonMatchesRectangleCheck
+        assertBool (show result) (proved result)
+    , testCase "proof: generic triangle pointInPolygon (Z3)" $ do
+        result <- SBV.prove symbolicPointInPolygonMatchesTriangleBarycentricCheck
+        assertBool (show result) (proved result)
     , testCase "part2 example" $ do
         input <- TIO.readFile "test_input"
         case parse parser "test_input" input of
@@ -207,3 +213,133 @@ endpointsArePairwiseDistinct points =
         | (index, (x1, y1)) <- zip [0 :: Int ..] points
         , (x2, y2) <- drop (index + 1) points
         ]
+
+type SPoint = (SBV.SReal, SBV.SReal)
+
+type SEdge = (SPoint, SPoint)
+
+-- Created by ChatGPT
+sPointEq :: SPoint -> SPoint -> SBV.SBool
+sPointEq (x1, y1) (x2, y2) = x1 SBV..== x2 SBV..&& y1 SBV..== y2
+
+-- Created by ChatGPT
+sPointSum :: SPoint -> SPoint -> SPoint
+sPointSum (x1, y1) (x2, y2) = (x1 + x2, y1 + y2)
+
+-- Created by ChatGPT
+sPointNegate :: SPoint -> SPoint
+sPointNegate (x, y) = (-x, -y)
+
+-- Created by ChatGPT
+sPointDiff :: SPoint -> SPoint -> SPoint
+sPointDiff p1 p2 = sPointSum p1 (sPointNegate p2)
+
+-- Created by ChatGPT
+sIsInInterval :: SBV.SReal -> SBV.SReal -> SBV.SReal -> SBV.SBool
+sIsInInterval x1 x2 x3 =
+    SBV.ite
+        (x1 SBV..<= x2)
+        (x1 SBV..<= x3 SBV..&& x3 SBV..<= x2)
+        (x2 SBV..<= x3 SBV..&& x3 SBV..<= x1)
+
+-- Created by ChatGPT
+sIsInRect :: SEdge -> SPoint -> SBV.SBool
+sIsInRect ((x1, y1), (x2, y2)) (x3, y3) =
+    sIsInInterval x1 x2 x3 SBV..&& sIsInInterval y1 y2 y3
+
+-- Created by ChatGPT
+sLineSegmentIntersectsHalfRayGoingRight :: SPoint -> SEdge -> SBV.SBool
+sLineSegmentIntersectsHalfRayGoingRight pointInAnalysis@(x3, _) edge@(p1, p2) =
+    det SBV../= 0
+        SBV..&& SBV.sNot (sPointEq p p1)
+        SBV..&& SBV.sNot (sPointEq p p2)
+        SBV..&& SBV.sNot (sPointEq p pointInAnalysis)
+        SBV..&& sIsInRect edge p
+        SBV..&& x3 SBV..< x
+  where
+    ray = (pointInAnalysis, sPointSum pointInAnalysis (1, 0))
+    matrix = lineIntersectionMatrix edge ray
+    constants = lineIntersectionConstants edge ray
+    det = det2x2 matrix
+    p@(x, _) = solve2x2' matrix constants det
+
+-- Created by ChatGPT
+sPointInPolygon :: [SEdge] -> SPoint -> SBV.SBool
+sPointInPolygon edges point =
+    foldr (SBV..<+>) SBV.sFalse (map (sLineSegmentIntersectsHalfRayGoingRight point) edges)
+
+-- Created by ChatGPT
+sPointOnLineSegment :: SEdge -> SPoint -> SBV.SBool
+sPointOnLineSegment edge@(p1, p2) point =
+    det2x2 (sPointDiff p2 p1, sPointDiff point p1) SBV..== 0
+        SBV..&& sIsInRect edge point
+
+-- Created by ChatGPT
+sPointOnAnyEdge :: [SEdge] -> SPoint -> SBV.SBool
+sPointOnAnyEdge edges point = SBV.sOr (map (`sPointOnLineSegment` point) edges)
+
+-- Created by ChatGPT
+symbolicPointInPolygonMatchesRectangleCheck
+    :: SBV.SReal
+    -> SBV.SReal
+    -> SBV.SReal
+    -> SBV.SReal
+    -> SBV.SReal
+    -> SBV.SReal
+    -> SBV.SBool
+symbolicPointInPolygonMatchesRectangleCheck x1 y1 x2 y2 x y =
+    (x1 SBV../= x2 SBV..&& y1 SBV../= y2 SBV..&& SBV.sNot (sPointOnAnyEdge rectangleEdges point))
+        SBV..=> (sPointInPolygon rectangleEdges point SBV..<=> sIsInRect ((x1, y1), (x2, y2)) point)
+  where
+    point = (x, y)
+    rectangleEdges =
+        [ ((x1, y1), (x2, y1))
+        , ((x2, y1), (x2, y2))
+        , ((x2, y2), (x1, y2))
+        , ((x1, y2), (x1, y1))
+        ]
+
+-- Created by ChatGPT
+sPointInTriangleByBarycentricCoordinates :: SPoint -> SPoint -> SPoint -> SPoint -> SBV.SBool
+sPointInTriangleByBarycentricCoordinates (x1, y1) (x2, y2) (x3, y3) (x, y) =
+    denom SBV../= 0
+        SBV..&& alpha SBV..>= 0
+        SBV..&& beta SBV..>= 0
+        SBV..&& gamma SBV..>= 0
+        SBV..&& alpha SBV..<= 1
+        SBV..&& beta SBV..<= 1
+        SBV..&& gamma SBV..<= 1
+  where
+    denom = (y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3)
+    alpha = ((y2 - y3) * (x - x3) + (x3 - x2) * (y - y3)) / denom
+    beta = ((y3 - y1) * (x - x3) + (x1 - x3) * (y - y3)) / denom
+    gamma = 1 - alpha - beta
+
+-- Created by ChatGPT
+symbolicPointInPolygonMatchesTriangleBarycentricCheck
+    :: SBV.SReal
+    -> SBV.SReal
+    -> SBV.SReal
+    -> SBV.SReal
+    -> SBV.SReal
+    -> SBV.SReal
+    -> SBV.SReal
+    -> SBV.SReal
+    -> SBV.SBool
+symbolicPointInPolygonMatchesTriangleBarycentricCheck x1 y1 x2 y2 x3 y3 x y =
+    ( triangleDet SBV../= 0
+        SBV..&& y SBV../= y1
+        SBV..&& y SBV../= y2
+        SBV..&& y SBV../= y3
+        SBV..&& SBV.sNot (sPointOnAnyEdge triangleEdges point)
+    )
+        SBV..=> (sPointInPolygon triangleEdges point SBV..<=> barycentricCheck)
+  where
+    point = (x, y)
+    p1 = (x1, y1)
+    p2 = (x2, y2)
+    p3 = (x3, y3)
+    triangleEdges = [(p1, p2), (p2, p3), (p3, p1)]
+    triangleDet = det2x2 (sPointDiff p2 p1, sPointDiff p3 p1)
+    barycentricCheck =
+        sPointInTriangleByBarycentricCoordinates p1 p2 p3 point
