@@ -57,7 +57,7 @@ main = defaultMain $ testGroup "AoC5"
         input <- TIO.readFile "input"
         case parse parser "input" input of
             Left err -> assertFailure (show err)
-            Right parsed -> assertEqual "part2" 1525991432 (part2 parsed)            
+            Right parsed -> assertEqual "part2" 1525991432 (part2 parsed)
     ]
 
 proved :: SBV.ThmResult -> Bool

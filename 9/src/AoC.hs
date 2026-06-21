@@ -26,17 +26,22 @@ The algorithm was a too tricky to find on my own because touching edges and vert
 
 times:
 1st attempt: 4m
-2nd attempt 2.4s calculated edges only once and changed from Rationals to Floats
-3rd attempt 1,0s memoization of pointInPolygon
+2nd attempt 2.4s calculated edges only once and changed from Rationals to Doubles (result wrong due to Float)
+3rd attempt 1,0s memoization of pointInPolygon (result wrong due to Float)
+4th attempt 1.5s changed float to double to have correct result
 
+All
   part1 without parsing: OK
-    33.5 ms ± 397 μs
+    39.3 ms ± 2.0 ms
   part2 without parsing: OK
-    2.302 s ±  61 ms
+    1.527 s ±  54 ms
   part1 with parsing:    OK
-    37.1 ms ± 2.4 ms
+    41.0 ms ± 2.8 ms
   part2 with parsing:    OK
-    2.321 s ±  72 ms
+    1.508 s ±  91 ms
+
+All 4 tests passed (228.41s)
+Benchmark bench: FINISH
 
 todo: improve speed
 --}
@@ -95,7 +100,7 @@ type Parser = Parsec Void Text
 type Point = (Int,Int)
 type Vertice = Point
 type PolygonVertices = [Vertice]
-type Edge = ((Float, Float), (Float, Float))
+type Edge = ((Double, Double), (Double, Double))
 type ParsedType = PolygonVertices
 
 pNumber :: forall a. Read a => Parser a
@@ -194,18 +199,18 @@ lineSegmentsIntersectAtInteriorPoint a@(p1, p2) b@(p3, p4)
         sol = solve2x2 (lineIntersectionMatrix a b) (lineIntersectionConstants a b)
 
 lineSegmentIntersectsHalfRayGoingRight :: (Ord a, Fractional a) => (a,a) -> ((a, a), (a, a)) -> Bool
-lineSegmentIntersectsHalfRayGoingRight p3@(x3,_) a@(p1, p2)
+lineSegmentIntersectsHalfRayGoingRight pointInAnalysis@(x3,_) a@(p1, p2)
     | p1 == p2 = error "lineSegmentsIntersectAtInteriorPoint: first segment has identical endpoints"
     | otherwise = case sol of
         -- Unique solution
         Just (p@(x,y))
-            | p == p1 || p == p2 || p == p3 -> False
-            | not (isInRect a p && x3 < x ) -> False
+            | p == p1 || p == p2 || p == pointInAnalysis -> False
+            | not (isInRect a p && x3 < x) -> False
             | otherwise -> True
         -- No solution or multiple solutions
         Nothing -> False
     where
-        b = (p3, pointSum p3 (1,0)) 
+        b = (pointInAnalysis, pointSum pointInAnalysis (1,0))
         sol = solve2x2 (lineIntersectionMatrix a b) (lineIntersectionConstants a b)
 
 memoIntegralPoint :: Integral a => Memo (a,a)
@@ -235,8 +240,8 @@ toRational' = fromIntegral
 intToRational :: Int -> Rational
 intToRational = fromIntegral
 
-intToFloat :: Int -> Float
-intToFloat = fromIntegral
+intToDouble :: Int -> Double
+intToDouble = fromIntegral
 
 -- |
 -- Rational should not have precision problems, but maybe too slow.
@@ -281,14 +286,14 @@ polygonEdgesProperlyIntersect edges_a edges_b = not $ null intesectingEdges wher
 --                  +---------------------+
 --                      1.036 s ±  70 ms
 pointInPolygon edges p = odd numberOfCrossings where
-    p' = over both intToFloat p
+    p' = over both intToDouble p
     numberOfCrossings = length $ filter f edges
     f edge = lineSegmentIntersectsHalfRayGoingRight p' edge
 
 
 memoPointInPolygon edges p = memoIntegralPoint g p where
     g p = odd numberOfCrossings where
-        p' = over both intToFloat p
+        p' = over both intToDouble p
         numberOfCrossings = length $ filter f edges
         f edge = lineSegmentIntersectsHalfRayGoingRight p' edge
 
@@ -299,7 +304,7 @@ memoPointInPolygon edges p = memoIntegralPoint g p where
 -- 3. Ignore boundary touches and collinear overlaps.
 -- Todo: check in SBV
 polygonInsidePolygonTouchingOk a@(verticesA@(a1:a2:a3:_),edges_a) b@(verticesB@(b1:b2:b3:_),edges_b) = everyVerticeOfAinsideB && not (polygonEdgesProperlyIntersect edges_a edges_b) where
-    everyVerticeOfAinsideB = all (pointInPolygon edges_b) (verticesA) -- OPTIMIZATION the first two vertices are for sure inside the polygon because they are vertices of B
+    everyVerticeOfAinsideB = all (memoPointInPolygon edges_b) (verticesA) -- OPTIMIZATION the first two vertices are for sure inside the polygon because they are vertices of B
 polygonInsidePolygonTouchingOk _ _ = error "polygonInsidePolygonTouchingOk: Both polygons must have 3 vertices"
 
 --  a +-------------+ c
@@ -311,7 +316,7 @@ makeRectangle a@(x1,y1) b@(x2,y2) = (vertices, edges) where
     vertices = [a,b,c,d]
     edges = verticesToEdges vertices
     
-verticesToEdges = verticesToEdges' . over (traversed.each) intToFloat
+verticesToEdges = verticesToEdges' . over (traversed.each) intToDouble
 
 part2 :: PolygonVertices -> Int
 part2 vertices = case areas of
