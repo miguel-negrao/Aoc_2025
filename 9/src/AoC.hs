@@ -281,9 +281,9 @@ part2 points = case areas of
         _ -> 0
     where
         rectanglesInsidePolygon = do
-            v <- points
-            w <- points
-            guard $ v /= w && polygonInsidePolygonTouchingOk (makeRectangle v w) points
+            v@(x1,y1) <- points
+            w@(x2,y2) <- points
+            guard $ x1 /= x2 && y1 /= y2 && polygonInsidePolygonTouchingOk (makeRectangle v w) points
             return (v,w)
         areas = sortOn Down $ fmap (uncurry area) rectanglesInsidePolygon
 

@@ -12,5 +12,5 @@ main = do
     case parse parser "input" input of
         Right parsed -> do
             putStrLn $ "part1: " <> show (part1 parsed) <> "\n"
-            -- putStrLn $ "part2: " <> show (part2 parsed) <> "\n"
+            putStrLn $ "part2: " <> show (part2 parsed) <> "\n"
         Left e -> putStrLn (errorBundlePretty e)
