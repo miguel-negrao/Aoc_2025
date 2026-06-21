@@ -24,6 +24,18 @@ notes:
 I decided to first research a bit the algorithms used for this, as this seemed a bit too far away from the usual CS algorithms.
 The algorithm was a too tricky to find on my own because touching edges and vertices must be allowed. In the end I needed help for the algorithmn of one of the functions. The first try was correct, clocking at 4m execution time. Will try to make it more eficient.
 
+times:
+1st attempt: 4m
+2nd attempt 2s calculated edges only once and changed from Rationals to Floats
+
+  part1 without parsing: OK
+    33.5 ms ± 397 μs
+  part2 without parsing: OK
+    2.302 s ±  61 ms
+  part1 with parsing:    OK
+    37.1 ms ± 2.4 ms
+  part2 with parsing:    OK
+    2.321 s ±  72 ms
 --}
 
 module AoC
@@ -64,6 +76,7 @@ import Text.Megaparsec.Debug
 import Math.Combinat.Sets (combine, choose)
 import Data.Ord (Down(..))
 import GHC.Base (leInt)
+import Data.Ratio (numerator, denominator, (%))
 
 -- by ChatGPT
 newtype OnePerLine a = OnePerLine [a]
@@ -76,8 +89,10 @@ instance Show a => Show (OnePerLine a) where
 type Parser = Parsec Void Text
 
 type Point = (Int,Int)
-type Polygon = [Point]
-type ParsedType = Polygon
+type Vertice = Point
+type PolygonVertices = [Vertice]
+type Edge = ((Float, Float), (Float, Float))
+type ParsedType = PolygonVertices
 
 pNumber :: forall a. Read a => Parser a
 pNumber = read <$> some digitChar
@@ -153,7 +168,6 @@ lineIntersectionConstants :: Num a => ((a, a), (a, a)) -> ((a, a), (a, a)) -> (a
 lineIntersectionConstants ((x1, y1), (x2, y2)) ((x3, y3), (x4, y4)) =
     (x1 * y2 - x2 * y1, x3 * y4 - x4 * y3)
 
-
 isInInterval :: Ord a => a -> a -> a -> Bool
 isInInterval x1 x2 x3 = if x1 <= x2 then (x1 <= x3 && x3 <= x2) else (x2 <= x3 && x3 <= x1)
 
@@ -175,8 +189,6 @@ lineSegmentsIntersectAtInteriorPoint a@(p1, p2) b@(p3, p4)
     where
         sol = solve2x2 (lineIntersectionMatrix a b) (lineIntersectionConstants a b)
 
-
-
 lineSegmentIntersectsHalfRayGoingRight :: (Ord a, Fractional a) => (a,a) -> ((a, a), (a, a)) -> Bool
 lineSegmentIntersectsHalfRayGoingRight p3@(x3,_) a@(p1, p2)
     | p1 == p2 = error "lineSegmentsIntersectAtInteriorPoint: first segment has identical endpoints"
@@ -192,9 +204,24 @@ lineSegmentIntersectsHalfRayGoingRight p3@(x3,_) a@(p1, p2)
         b = (p3, pointSum p3 (1,0)) 
         sol = solve2x2 (lineIntersectionMatrix a b) (lineIntersectionConstants a b)
 
+memoIntegralPoint :: Integral a => Memo (a,a)
+memoIntegralPoint = Memo.pair Memo.integral Memo.integral
 
-verticesToEdges :: [a] -> [(a, a)]
-verticesToEdges xs = zipWith f xs (drop 1 $ cycle xs) where
+memoRational :: Memo Rational
+memoRational = Memo.wrap to from memoIntegralPoint where
+    to (a,b) = a % b
+    from r = (numerator r , denominator r)
+
+memoRationalPointPoint :: Memo (Rational,Rational)
+memoRationalPointPoint = Memo.pair memoRational memoRational
+
+memoEdge :: Memo ((Rational,Rational), (Rational,Rational))
+memoEdge = Memo.pair memoRationalPointPoint memoRationalPointPoint
+
+memoLineSegmentIntersectsHalfRayGoingRight = Memo.memo2 memoRationalPointPoint memoEdge lineSegmentIntersectsHalfRayGoingRight
+
+verticesToEdges' :: [a] -> [(a, a)]
+verticesToEdges' xs = zipWith f xs (drop 1 $ cycle xs) where
     n = length xs
     f a b = (a,b)
 
@@ -204,12 +231,12 @@ toRational' = fromIntegral
 intToRational :: Int -> Rational
 intToRational = fromIntegral
 
+intToFloat :: Int -> Float
+intToFloat = fromIntegral
+
 -- |
 -- Rational should not have precision problems, but maybe too slow.
-polygonEdgesProperlyIntersect :: Polygon -> Polygon -> Bool
-polygonEdgesProperlyIntersect vertices_a vertices_b = not $ null intesectingEdges where
-    (edges_a, edges_b) = over each f (vertices_a, vertices_b)
-    f = verticesToEdges . over (traversed.each) intToRational
+polygonEdgesProperlyIntersect edges_a edges_b = not $ null intesectingEdges where
     intesectingEdges = do
         edge_a <- edges_a
         edge_b <- edges_b
@@ -249,41 +276,43 @@ polygonEdgesProperlyIntersect vertices_a vertices_b = not $ null intesectingEdge
 --                  |                     |
 --                  +---------------------+
 --                  
-pointInPolygon :: Polygon -> Point -> Bool
-pointInPolygon vertices p = odd numberOfCrossings where
-    -- todo: calculate only once
-    edges = verticesToEdges . over (traversed.each) intToRational $ vertices
-    p' = over both intToRational p
+pointInPolygon edges p = odd numberOfCrossings where
+    p' = over both intToFloat p
     numberOfCrossings = length $ filter f edges
     f edge = lineSegmentIntersectsHalfRayGoingRight p' edge
 
 -- |
 -- After tring a couple of times on my own, I didn't manage to find a criteria that worked, so I asked ChatGPT for help:
--- 1. Every vertex of A must be inside-or-on B.
+-- 1. Every vertex of A must be inside-or-on BintToRational.
 -- 2. No edge of A may strictly/properly cross an edge of B.
 -- 3. Ignore boundary touches and collinear overlaps.
 -- Todo: check in SBV
-polygonInsidePolygonTouchingOk :: Polygon -> Polygon -> Bool
-polygonInsidePolygonTouchingOk a@(a1:a2:a3:_) b@(b1:b2:b3:_) = everyVerticeOfAinsideB && not (polygonEdgesProperlyIntersect a b) where
-    everyVerticeOfAinsideB = all (pointInPolygon b) a
+polygonInsidePolygonTouchingOk a@(verticesA@(a1:a2:a3:_),edges_a) b@(verticesB@(b1:b2:b3:_),edges_b) = everyVerticeOfAinsideB && not (polygonEdgesProperlyIntersect edges_a edges_b) where
+    everyVerticeOfAinsideB = all (pointInPolygon edges_b) verticesA
 polygonInsidePolygonTouchingOk _ _ = error "polygonInsidePolygonTouchingOk: Both polygons must have 3 vertices"
 
 --  a +-------------+ c
 --    |             |
 --  d +-------------+ b
-makeRectangle a@(x1,y1) b@(x2,y2) = [a,b,c,d] where
+makeRectangle a@(x1,y1) b@(x2,y2) = (vertices, edges) where
     c = (x1,y2)   
     d = (x2,y1)
+    vertices = [a,b,c,d]
+    edges = verticesToEdges vertices
+    
+verticesToEdges = verticesToEdges' . over (traversed.each) intToFloat
 
-part2 :: Polygon -> Int
-part2 points = case areas of
+part2 :: PolygonVertices -> Int
+part2 vertices = case areas of
         (x:_) -> x
-        _ -> 0
+        [] -> 0
     where
+        edges = verticesToEdges vertices
+        both = (vertices, edges)
         rectanglesInsidePolygon = do
-            v@(x1,y1) <- points
-            w@(x2,y2) <- points
-            guard $ x1 /= x2 && y1 /= y2 && polygonInsidePolygonTouchingOk (makeRectangle v w) points
+            v@(x1,y1) <- vertices
+            w@(x2,y2) <- vertices
+            guard $ x1 /= x2 && y1 /= y2 && polygonInsidePolygonTouchingOk (makeRectangle v w) both
             return (v,w)
         areas = sortOn Down $ fmap (uncurry area) rectanglesInsidePolygon
 
