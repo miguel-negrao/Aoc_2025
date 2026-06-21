@@ -53,11 +53,11 @@ main = defaultMain $ testGroup "AoC5"
         case parse parser "test_input" input of
             Left err -> assertFailure (show err)
             Right parsed -> assertEqual "part2" 24 (part2 parsed)
-    -- , testCase "part2 final" $ do
-    --     input <- TIO.readFile "input"
-    --     case parse parser "input" input of
-    --         Left err -> assertFailure (show err)
-    --         Right parsed -> assertEqual "part2" 1525991432 (part2 parsed)            
+    , testCase "part2 final" $ do
+        input <- TIO.readFile "input"
+        case parse parser "input" input of
+            Left err -> assertFailure (show err)
+            Right parsed -> assertEqual "part2" 1525991432 (part2 parsed)            
     ]
 
 proved :: SBV.ThmResult -> Bool

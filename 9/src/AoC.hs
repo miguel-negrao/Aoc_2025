@@ -26,7 +26,8 @@ The algorithm was a too tricky to find on my own because touching edges and vert
 
 times:
 1st attempt: 4m
-2nd attempt 2s calculated edges only once and changed from Rationals to Floats
+2nd attempt 2.4s calculated edges only once and changed from Rationals to Floats
+3rd attempt 1,0s memoization of pointInPolygon
 
   part1 without parsing: OK
     33.5 ms ± 397 μs
@@ -36,6 +37,8 @@ times:
     37.1 ms ± 2.4 ms
   part2 with parsing:    OK
     2.321 s ±  72 ms
+
+todo: improve speed
 --}
 
 module AoC
@@ -77,6 +80,7 @@ import Math.Combinat.Sets (combine, choose)
 import Data.Ord (Down(..))
 import GHC.Base (leInt)
 import Data.Ratio (numerator, denominator, (%))
+import qualified Data.MemoCombinators.Class as Memo
 
 -- by ChatGPT
 newtype OnePerLine a = OnePerLine [a]
@@ -275,11 +279,18 @@ polygonEdgesProperlyIntersect edges_a edges_b = not $ null intesectingEdges wher
 --                  |                     |             
 --                  |                     |
 --                  +---------------------+
---                  
+--                      1.036 s ±  70 ms
 pointInPolygon edges p = odd numberOfCrossings where
     p' = over both intToFloat p
     numberOfCrossings = length $ filter f edges
     f edge = lineSegmentIntersectsHalfRayGoingRight p' edge
+
+
+memoPointInPolygon edges p = memoIntegralPoint g p where
+    g p = odd numberOfCrossings where
+        p' = over both intToFloat p
+        numberOfCrossings = length $ filter f edges
+        f edge = lineSegmentIntersectsHalfRayGoingRight p' edge
 
 -- |
 -- After tring a couple of times on my own, I didn't manage to find a criteria that worked, so I asked ChatGPT for help:
@@ -288,7 +299,7 @@ pointInPolygon edges p = odd numberOfCrossings where
 -- 3. Ignore boundary touches and collinear overlaps.
 -- Todo: check in SBV
 polygonInsidePolygonTouchingOk a@(verticesA@(a1:a2:a3:_),edges_a) b@(verticesB@(b1:b2:b3:_),edges_b) = everyVerticeOfAinsideB && not (polygonEdgesProperlyIntersect edges_a edges_b) where
-    everyVerticeOfAinsideB = all (pointInPolygon edges_b) verticesA
+    everyVerticeOfAinsideB = all (pointInPolygon edges_b) (verticesA) -- OPTIMIZATION the first two vertices are for sure inside the polygon because they are vertices of B
 polygonInsidePolygonTouchingOk _ _ = error "polygonInsidePolygonTouchingOk: Both polygons must have 3 vertices"
 
 --  a +-------------+ c
