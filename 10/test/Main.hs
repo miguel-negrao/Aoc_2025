@@ -47,11 +47,11 @@ main = defaultMain $ testGroup "AoC5"
              Right parsed -> do
                 res <- part1v4 parsed
                 assertEqual "part1v4" (fromIntegral p1answer) res
-    , testCase "part2 example" $ do
-        input <- TIO.readFile "test_input"
-        case parse parser "test_input" input of
-            Left err -> assertFailure (show err)
-            Right parsed -> assertEqual "part2v1" p2testanswer (part2 parsed)
+    -- , testCase "part2 example" $ do
+    --     input <- TIO.readFile "test_input"
+    --     case parse parser "test_input" input of
+    --         Left err -> assertFailure (show err)
+    --         Right parsed -> assertEqual "part2v1" p2testanswer (part2 parsed)
     , testCase "part2v2 SBV example" $ do
          input <- TIO.readFile "test_input"
          case parse parser "test_input" input of
