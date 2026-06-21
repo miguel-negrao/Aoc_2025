@@ -303,7 +303,7 @@ memoPointInPolygon edges p = memoIntegralPoint memoPointInPolygon' p where
 -- 3. Ignore boundary touches and collinear overlaps.
 -- Todo: check in SBV
 polygonInsidePolygonTouchingOk a@(verticesA@(a1:a2:a3:_),edges_a) b@(verticesB@(b1:b2:b3:_),edges_b) = everyVerticeOfAinsideB && not (polygonEdgesProperlyIntersect edges_a edges_b) where
-    everyVerticeOfAinsideB = all (memoPointInPolygon edges_b) (verticesA) -- OPTIMIZATION the first two vertices are for sure inside the polygon because they are vertices of B
+    everyVerticeOfAinsideB = all (memoPointInPolygon edges_b) verticesA
 polygonInsidePolygonTouchingOk _ _ = error "polygonInsidePolygonTouchingOk: Both polygons must have 3 vertices"
 
 --  a +-------------+ c
