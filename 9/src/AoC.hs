@@ -17,12 +17,12 @@ used chatgpt: no
 notes: very easy, was very similar to day 8. This means part 2 will be hard!
 
 part2
-time:
-attempts:
-used chatgpt: yes, to research computacional geometry alrightms in general, but also wikipedia. ChatGPT as used to help create sbv proofs of correctness for my hand-coded functions. 
+time: 2 weeks
+attempts: 1
+used chatgpt: yes, to research computacional geometry alrightms in general, but also wikipedia. It was used to determine the algorithmn for the function polygonInsidePolygonTouchingOk. ChatGPT as used to help create sbv proofs of correctness for my hand-coded functions.  All the code in thihs file is my own.
 notes:
 I decided to first research a bit the algorithms used for this, as this seemed a bit too far away from the usual CS algorithms.
-For checking weather one poligon contains the other math stack exchange suggested check if any of the edges of the 2 polygons intersect and then check if one point of one polygon is inside the other.
+The algorithm was a too tricky to find on my own because touching edges and vertices must be allowed. In the end I needed help for the algorithmn of one of the functions. The first try was correct, clocking at 4m execution time. Will try to make it more eficient.
 
 --}
 
@@ -286,6 +286,36 @@ part2 points = case areas of
             guard $ x1 /= x2 && y1 /= y2 && polygonInsidePolygonTouchingOk (makeRectangle v w) points
             return (v,w)
         areas = sortOn Down $ fmap (uncurry area) rectanglesInsidePolygon
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 -- Tests
 
