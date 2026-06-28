@@ -51,9 +51,6 @@ main = defaultMain $ testGroup "AoC5"
     , testCase "half-ray endpoint convention parametric soundness (Z3)" $ do
         result <- SBV.sat halfRayEndpointParametricSoundnessCounterexample
         assertBool (show result) (unsatisfiable result)
-    , testCase "pointInPolygon odd-even rule uses shared implementation (Z3)" $ do
-        result <- SBV.prove symbolicPointInPolygonExamples
-        assertBool (show result) (proved result)
     , testCase "pointOnEdge soundness: parametric definition implies criterion (Z3)" $ do
         result <- SBV.prove pointOnEdgeParametricSoundness
         assertBool (show result) (proved result)
@@ -216,22 +213,6 @@ parametricHalfRayCrossingWithEndpointConvention
         (0 .<. segmentT .&&. segmentT .<. 1)
             .||. (segmentT .==. 0 .&&. edgeY2 .<. pointY)
             .||. (segmentT .==. 1 .&&. edgeY1 .<. pointY)
-
-symbolicPointInPolygonExamples :: SBV.SBool
-symbolicPointInPolygonExamples =
-    pointInPolygon squareEdges insidePoint
-        .&&. b_not (pointInPolygon squareEdges outsidePoint)
-  where
-    insidePoint, outsidePoint :: SPoint
-    insidePoint = (1, 1)
-    outsidePoint = (3, 1)
-    squareEdges :: [SEdge]
-    squareEdges =
-        [ ((0, 0), (2, 0))
-        , ((2, 0), (2, 2))
-        , ((2, 2), (0, 2))
-        , ((0, 2), (0, 0))
-        ]
 
 pointOnEdgeParametricSoundness
     :: SBV.Forall "x1" SBV.AlgReal

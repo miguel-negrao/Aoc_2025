@@ -745,7 +745,7 @@ makeRectangle :: Point Int -> Point Int -> ([Point Int], [Edge Double])
 makeRectangle a@(x1,y1) b@(x2,y2) = (vertices, edges) where
     c = (x1,y2)   
     d = (x2,y1)
-    vertices = [a,b,c,d]
+    vertices = [a,d,b,c]
     edges = verticesToEdges vertices
 
 -- |
@@ -769,3 +769,10 @@ part2 vertices = case areas of
             guard $ x1 /= x2 && y1 /= y2 && polygonIsInsideOrOn rectangle polygon
             return (v,w)
         areas = sortOn Down $ fmap (uncurry area) rectanglesInsidePolygon
+
+{-- TODO
+- Replace vertex containment + no proper crossings with complete-edge containment.
+- Split each tested edge at boundary intersections/overlaps and check each interval.
+- Make the concave-notch regression pass, then restore the containment SBV tests.
+- Benchmark and reintroduce caching where it materially helps.
+--}
