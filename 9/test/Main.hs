@@ -44,7 +44,7 @@ main = defaultMain $ testGroup "AoC5"
         assertBool (show result) (proved result)
     , testCase "logicSort sorts concrete values" $
         assertEqual "sorted values" [1, 2, 3, 4]
-            (logicSort ((<=) :: Int -> Int -> Bool) [3, 1, 4, 2])
+            (logicSort [3, 1, 4, 2 :: Int])
     , testCase "logicSort sorts symbolic values (Z3)" $ do
         result <- SBV.prove symbolicLogicSortOrdersThree
         assertBool (show result) (proved result)
@@ -102,7 +102,11 @@ concaveNotchRectangleIsNotContained =
         "the rectangle includes the empty notch and is not contained"
         (not (polygonIsInsideOrOn rectangle outerPolygon))
   where
+    rectangle
+        :: ([(Integer, Integer)], [((Double, Double), (Double, Double))])
     rectangle = (rectangleVertices, rectangleEdges)
+    outerPolygon
+        :: ([(Integer, Integer)], [((Double, Double), (Double, Double))])
     outerPolygon = (outerVertices, outerEdges)
     rectangleVertices = [(0, 0), (4, 0), (4, 4), (0, 4)]
     rectangleEdges =
@@ -158,7 +162,7 @@ symbolicLogicSortOrdersThree
     -> SBV.SReal
     -> SBV.SBool
 symbolicLogicSortOrdersThree x y z =
-    case logicSort ((.<=.) :: SBV.SReal -> SBV.SReal -> SBV.SBool) [x, y, z] of
+    case logicSort [x, y, z] of
         [a, b, c] ->
             a .<=. b
                 .&&. b .<=. c

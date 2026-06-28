@@ -10,7 +10,9 @@
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UndecidableSuperClasses #-}
 {- HLINT ignore "Unused LANGUAGE pragma" -}
 
 {--
@@ -66,6 +68,7 @@ module AoC
     , lineIntersectionMatrix
     , lineIntersectionConstants
     , BooleanLogic(..)
+    , LogicBoolean
     , LogicIte(..)
     , LogicEq(..)
     , LogicOrd(..)
@@ -134,28 +137,33 @@ class BooleanLogic b where
     (.=>.) :: b -> b -> b
     (.<=>.) :: b -> b -> b
 
--- | Conditional selection shared by concrete values and symbolic values.
-class LogicIte condition value where
-    logicIte :: condition -> value -> value -> value
+-- | The Boolean type produced by comparisons on a value.
+--
+-- Concrete values produce 'Bool'; SBV values produce 'SBV.SBool'.  Keeping
+-- this relationship in one closed family means that a constraint such as
+-- @LogicOrd a@ also determines the Boolean type used inside the function.
+type family LogicBoolean a where
+    LogicBoolean (SBV.SBV a) = SBV.SBool
+    LogicBoolean a = Bool
 
 -- | Equality whose result can be either a concrete or symbolic Boolean.
 infix 4 .==., ./=.
 
 -- ChatGPT
-class BooleanLogic b => LogicEq a b where
-    (.==.) :: a -> a -> b
-    (./=.) :: a -> a -> b
+class BooleanLogic (LogicBoolean a) => LogicEq a where
+    (.==.) :: a -> a -> LogicBoolean a
+    (./=.) :: a -> a -> LogicBoolean a
     left ./=. right = b_not (left .==. right)
 
 -- | Ordering whose result can be either a concrete or symbolic Boolean.
 infix 4 .<., .<=., .>., .>=.
 
 -- ChatGPT
-class (BooleanLogic b, LogicEq a b) => LogicOrd a b where
-    (.<.) :: a -> a -> b
-    (.<=.) :: a -> a -> b
-    (.>.) :: a -> a -> b
-    (.>=.) :: a -> a -> b
+class LogicEq a => LogicOrd a where
+    (.<.) :: a -> a -> LogicBoolean a
+    (.<=.) :: a -> a -> LogicBoolean a
+    (.>.) :: a -> a -> LogicBoolean a
+    (.>=.) :: a -> a -> LogicBoolean a
 
 -- ChatGPT
 instance BooleanLogic Bool where
@@ -179,34 +187,37 @@ instance BooleanLogic SBV.SBool where
     (.=>.) = (SBV..=>)
     (.<=>.) = (SBV..<=>)
 
+-- | Conditional selection shared by concrete and symbolic conditions.
+class LogicIte condition value where
+    logicIte :: condition -> value -> value -> value
+
 -- ChatGPT
 instance LogicIte Bool value where
     logicIte condition whenTrue whenFalse =
         if condition then whenTrue else whenFalse
 
--- ChatGPT
 instance SBV.Mergeable value => LogicIte SBV.SBool value where
     logicIte = SBV.ite
 
 -- ChatGPT
-instance Eq a => LogicEq a Bool where
+instance {-# OVERLAPPABLE #-} (Eq a, LogicBoolean a ~ Bool) => LogicEq a where
     (.==.) = (==)
     (./=.) = (/=)
 
 -- ChatGPT
-instance LogicEq SBV.SReal SBV.SBool where
+instance {-# OVERLAPPING #-} LogicEq SBV.SReal where
     (.==.) = (SBV..==)
     (./=.) = (SBV../=)
 
 -- ChatGPT
-instance Ord a => LogicOrd a Bool where
+instance {-# OVERLAPPABLE #-} (Ord a, LogicBoolean a ~ Bool) => LogicOrd a where
     (.<.) = (<)
     (.<=.) = (<=)
     (.>.) = (>)
     (.>=.) = (>=)
 
 -- ChatGPT
-instance LogicOrd SBV.SReal SBV.SBool where
+instance {-# OVERLAPPING #-} LogicOrd SBV.SReal where
     (.<.) = (SBV..<)
     (.<=.) = (SBV..<=)
     (.>.) = (SBV..>)
@@ -225,26 +236,24 @@ logicAny = foldr (.||.) false
 -- The list length is fixed; symbolic conditions select which value occupies
 -- each output position.
 logicSort
-    :: LogicIte condition value
-    => (value -> value -> condition)
-    -> [value]
-    -> [value]
-logicSort ordering = logicSortOn ordering id
+    :: (LogicOrd a, LogicIte (LogicBoolean a) a)
+    => [a]
+    -> [a]
+logicSort = logicSortOn id
 
 -- ChatGPT
 logicSortOn
-    :: LogicIte condition value
-    => (key -> key -> condition)
-    -> (value -> key)
+    :: (LogicOrd key, LogicIte (LogicBoolean key) value)
+    => (value -> key)
     -> [value]
     -> [value]
-logicSortOn ordering key = foldr insert []
+logicSortOn f = foldr insert []
   where
     insert value [] = [value]
     insert value (next:rest) =
         smaller : insert larger rest
       where
-        valueComesFirst = ordering (key value) (key next)
+        valueComesFirst = f value .<=. f next
         smaller = logicIte valueComesFirst value next
         larger = logicIte valueComesFirst next value
 
@@ -353,7 +362,7 @@ solve2x2' a@((a1,b1),(a2,b2)) (c1,c2) det = ( (c1*b2-b1*c2) / det, (a1*c2 - c1 *
 -- by Cramer's rule. The returned point is meaningful only when the Boolean is
 -- true. Keeping the condition as a value allows the same function to work with
 -- both Bool and SBV.SBool.
-solve2x2 :: (Fractional a, LogicEq a b) => (Point a, Point a) -> Point a -> (b, Point a)
+solve2x2 :: (Fractional a, LogicEq a) => (Point a, Point a) -> Point a -> (LogicBoolean a, Point a)
 solve2x2 a c = (det ./=. 0, res) where
     det = det2x2 a
     res = solve2x2' a c det
@@ -385,35 +394,36 @@ lineIntersectionConstants ((x1, y1), (x2, y2)) ((x3, y3), (x4, y4)) =
     (x1 * y2 - x2 * y1, x3 * y4 - x4 * y3)
 
 booleanIte :: (BooleanLogic b) => b -> b -> b -> b
-booleanIte cond a b = (cond .&&. b) .||. ((b_not cond) .&&. b) 
+booleanIte cond whenTrue whenFalse =
+    (cond .&&. whenTrue) .||. (b_not cond .&&. whenFalse)
 
-isInInterval :: forall a b. (LogicOrd a b) => a -> a -> a -> b
+isInInterval :: LogicOrd a => a -> a -> a -> LogicBoolean a
 isInInterval x1 x2 x3 =
         booleanIte
         (x1 .<=. x2) 
         (x1 .<=. x3 .&&. x3 .<=. x2)
         (x2 .<=. x3 .&&. x3 .<=. x1)
 
-isInRect :: LogicOrd a b => Edge a -> Point a -> b
+isInRect :: LogicOrd a => Edge a -> Point a -> LogicBoolean a
 isInRect ((x1,y1), (x2,y2)) (x3,y3) =
     isInInterval x1 x2 x3 .&&. isInInterval y1 y2 y3
 
-pointEq :: LogicEq a b => Point a -> Point a -> b
+pointEq :: LogicEq a => Point a -> Point a -> LogicBoolean a
 pointEq (x1, y1) (x2, y2) = x1 .==. x2 .&&. y1 .==. y2
 
 
 hasLineSegmentsIntersectAtInteriorPoint
-    :: (Fractional a, LogicOrd a b)
+    :: (Fractional a, LogicOrd a)
     => Edge a
     -> Edge a
-    -> b
+    -> LogicBoolean a
 hasLineSegmentsIntersectAtInteriorPoint edgeA edgeB = fst $ lineSegmentIntersectionAtInteriorPoint edgeA edgeB
 
 lineSegmentIntersectionAtInteriorPoint
-    :: (Fractional a, LogicOrd a b)
+    :: (Fractional a, LogicOrd a)
     => Edge a
     -> Edge a
-    -> (b, Point a)
+    -> (LogicBoolean a, Point a)
 lineSegmentIntersectionAtInteriorPoint edgeA@(p1, p2) edgeB@(p3, p4) = (intersects, intersection)
   where
     (hasUniqueIntersection, intersection) =
@@ -453,10 +463,10 @@ lineSegmentIntersectionAtInteriorPoint edgeA@(p1, p2) edgeB@(p3, p4) = (intersec
 -- polygon merely touches the ray changes it zero or two times.  Whether the
 -- tested point itself lies on the polygon boundary is a separate question.
 lineSegmentIntersectsHalfRayGoingRight
-    :: (Fractional a, LogicOrd a b)
+    :: (Fractional a, LogicOrd a)
     => Point a
     -> Edge a
-    -> b
+    -> LogicBoolean a
 lineSegmentIntersectsHalfRayGoingRight pointInAnalysis@(x3, y3) edge@(p1@(_,y1), p2@(_,y2)) =
     b_not (pointEq p1 p2)
         .&&. hasUniqueIntersection
@@ -694,7 +704,7 @@ min(y₁,y₂) ≤ y ≤ max(y₁,y₂)
 
 Also proved with SBV
 --}
-pointOnEdge :: (Num a, LogicOrd a b) => Edge a -> Point a -> b
+pointOnEdge :: (Num a, LogicOrd a) => Edge a -> Point a -> LogicBoolean a
 pointOnEdge edge@(p1@(x1,y1),p2@(x2,y2)) p@(x,y) = 
     pointEq p p1
         .||. pointEq p p2
@@ -703,16 +713,16 @@ pointOnEdge edge@(p1@(x1,y1),p2@(x2,y2)) p@(x,y) =
             (isInRect edge p)
         )
 
-pointOnAnyEdge :: (Num a, LogicOrd a b) => [Edge a] -> Point a -> b
+pointOnAnyEdge :: (Num a, LogicOrd a) => [Edge a] -> Point a -> LogicBoolean a
 pointOnAnyEdge edges p = logicAny $ fmap ((flip pointOnEdge) p) edges
 
 -- |
 -- Rational should not have precision problems, but maybe too slow.
 polygonEdgesProperlyIntersect
-    :: (Fractional a, LogicOrd a b)
+    :: (Fractional a, LogicOrd a)
     => [Edge a]
     -> [Edge a]
-    -> b
+    -> LogicBoolean a
 polygonEdgesProperlyIntersect edgesA edgesB =
     logicAny
         [ hasLineSegmentsIntersectAtInteriorPoint edgeA edgeB
@@ -755,14 +765,18 @@ polygonEdgesProperlyIntersect edgesA edgesB =
 --                      1.036 s ±  70 ms
 
 pointInPolygon
-    :: (Fractional a, LogicOrd a b)
+    :: (Fractional a, LogicOrd a)
     => [Edge a]
     -> Point a
-    -> b
+    -> LogicBoolean a
 pointInPolygon edges point = pointOnAnyEdge edges point .||. isInside where
     isInside = oddParity (map (lineSegmentIntersectsHalfRayGoingRight point) edges)
 
-memoPointInPolygon  :: (Ord a, Fractional a, Integral b) => [Edge a] -> Point b -> Bool
+memoPointInPolygon
+    :: (Fractional a, Integral b, LogicOrd a, LogicBoolean a ~ Bool)
+    => [Edge a]
+    -> Point b
+    -> Bool
 memoPointInPolygon edges p = memoIntegralPoint memoPointInPolygon' p where
     memoPointInPolygon' = pointInPolygon edges . over both fromIntegral
 
@@ -771,10 +785,10 @@ memoPointInPolygon edges p = memoIntegralPoint memoPointInPolygon' p where
 -- |
 -- Intesection with endpoints of edge is allowed but not with endpoints of line segment
 lineSegmentEdgeIntersection
-    :: (Fractional a, LogicOrd a b)
+    :: (Fractional a, LogicOrd a)
     => Edge a
     -> Edge a
-    -> (b, Point a)
+    -> (LogicBoolean a, Point a)
 lineSegmentEdgeIntersection ls@(p1, p2) edge@(p3, p4) = (intersects, intersection)
   where
     (hasUniqueIntersection, intersection) =
@@ -790,8 +804,16 @@ lineSegmentEdgeIntersection ls@(p1, p2) edge@(p3, p4) = (intersects, intersectio
         .&&. isInRect ls intersection
         .&&. isInRect edge intersection
 
-sortPointsOnLineSegment :: [Point a] -> [Point a]
-sortPointsOnLineSegment xs = undefined
+sortPointsOnLineSegment 
+    :: ( LogicOrd a
+       , LogicIte (LogicBoolean a) ([Point a])
+       , LogicIte (LogicBoolean a) (Point a)
+       ) =>
+    Edge a -> [Point a] -> [Point a]
+sortPointsOnLineSegment ((x1,_),(x2,_)) xs =
+    logicIte (x1 .==. x2) sortY sortX where
+        sortX = logicSortOn fst xs
+        sortY = logicSortOn snd xs
 
 -- |
 -- Algorithm:
@@ -807,9 +829,13 @@ sortPointsOnLineSegment xs = undefined
 --    - the midpoint between every consecutive pair.
 -- Require every tested point to be inside or on boundary.
 --
-lineSegmentIsInsideOrOn :: forall a b . (Fractional a, LogicOrd a b) => ([Point a],[Edge a]) -> Edge a -> b
+lineSegmentIsInsideOrOn
+    :: forall a. (Fractional a, LogicOrd a)
+    => ([Point a], [Edge a])
+    -> Edge a
+    -> LogicBoolean a
 lineSegmentIsInsideOrOn (vertices, edges) segment = undefined where
-    intersections :: [(b, Point a)]
+    intersections :: [(LogicBoolean a, Point a)]
     intersections = fmap (lineSegmentIntersectionAtInteriorPoint segment) edges
     xs = intersections ++ fmap (\p -> (true, p)) vertices
 
@@ -820,7 +846,7 @@ lineSegmentIsInsideOrOn (vertices, edges) segment = undefined where
 -- 3. Ignore boundary touches and collinear overlaps.
 -- Todo: check in SBV
 polygonIsInsideOrOn
-    :: (Fractional a, Ord a, Integral b)
+    :: (Fractional a, Integral b, LogicOrd a, LogicBoolean a ~ Bool)
     => ([Point b], [Edge a])
     -> ([Point b], [Edge a])
     -> Bool
@@ -833,11 +859,11 @@ symbolicPolygonIsInsideOrOn
 symbolicPolygonIsInsideOrOn = symbolicPolygonIsInsideOrOn' pointInPolygon
 
 symbolicPolygonIsInsideOrOn'
-    :: (Fractional edgeCoordinate, LogicOrd edgeCoordinate result)
-    => ([Edge edgeCoordinate] -> Point vertexCoordinate -> result)
+    :: (Fractional edgeCoordinate, LogicOrd edgeCoordinate)
+    => ([Edge edgeCoordinate] -> Point vertexCoordinate -> LogicBoolean edgeCoordinate)
     -> ([Point vertexCoordinate], [Edge edgeCoordinate])
     -> ([Point vertexCoordinate], [Edge edgeCoordinate])
-    -> result
+    -> LogicBoolean edgeCoordinate
 symbolicPolygonIsInsideOrOn'
     pointMembership
     (verticesA@(_:_:_:_), edgesA)
