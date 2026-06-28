@@ -23,7 +23,7 @@ notes: very easy, was very similar to day 8. This means part 2 will be hard!
 part2
 time: 2 weeks
 attempts: 1
-used chatgpt: yes, to research computacional geometry alrightms in general, but also wikipedia. It was used to determine the algorithmn for the function polygonInsidePolygonTouchingOk. ChatGPT as used to help create sbv proofs of correctness for my hand-coded functions.  All the code in thihs file is my own.
+used chatgpt: yes, to research computacional geometry alrightms in general, but also wikipedia. It was used to determine the algorithmn for the function polygonIsInsideOrOn. ChatGPT as used to help create sbv proofs of correctness for my hand-coded functions.  All the code in thihs file is my own.
 notes:
 I decided to first research a bit the algorithms used for this, as this seemed a bit too far away from the usual CS algorithms.
 The algorithm was a too tricky to find on my own because touching edges and vertices must be allowed. In the end I needed help for the algorithmn of one of the functions. The first try was correct, clocking at 4m execution time (used Rational). Will try to make it more eficient (and still correct).
@@ -78,6 +78,9 @@ module AoC
     , oddParity
     , pointInPolygon
     , pointOnEdge
+    , polygonIsInsideOrOn
+    , symbolicPolygonIsInsideOrOn
+    , symbolicPolygonIsInsideOrOn'
     ) where
 
 import Data.List
@@ -641,13 +644,17 @@ pointOnAnyEdge edges p = logicAny $ fmap ((flip pointOnEdge) p) edges
 
 -- |
 -- Rational should not have precision problems, but maybe too slow.
-polygonEdgesProperlyIntersect :: (Ord a, Fractional a) => [Edge a] -> [Edge a] -> Bool
-polygonEdgesProperlyIntersect edges_a edges_b = not $ null intesectingEdges where
-    intesectingEdges = do
-        edge_a <- edges_a
-        edge_b <- edges_b
-        guard $ lineSegmentsIntersectAtInteriorPoint edge_a edge_b
-        return (edge_a, edge_b)
+polygonEdgesProperlyIntersect
+    :: (Fractional a, LogicOrd a b)
+    => [Edge a]
+    -> [Edge a]
+    -> b
+polygonEdgesProperlyIntersect edgesA edgesB =
+    logicAny
+        [ lineSegmentsIntersectAtInteriorPoint edgeA edgeB
+        | edgeA <- edgesA
+        , edgeB <- edgesB
+        ]
 
 -- |
 -- 1. Shoot half ray from point in any direction, for instance along the X axis.
@@ -701,10 +708,35 @@ memoPointInPolygon edges p = memoIntegralPoint memoPointInPolygon' p where
 -- 2. No edge of A may strictly/properly cross an edge of B.
 -- 3. Ignore boundary touches and collinear overlaps.
 -- Todo: check in SBV
-polygonInsidePolygonTouchingOk :: (Fractional a, Ord a, Integral b) => ([Point b], [Edge a]) -> ([Point b], [Edge a]) -> Bool
-polygonInsidePolygonTouchingOk a@(verticesA@(a1:a2:a3:_),edges_a) b@(verticesB@(b1:b2:b3:_),edges_b) = everyVerticeOfAinsideB && not (polygonEdgesProperlyIntersect edges_a edges_b) where
-    everyVerticeOfAinsideB = all (memoPointInPolygon edges_b) verticesA
-polygonInsidePolygonTouchingOk _ _ = error "polygonInsidePolygonTouchingOk: Both polygons must have 3 vertices"
+polygonIsInsideOrOn
+    :: (Fractional a, Ord a, Integral b)
+    => ([Point b], [Edge a])
+    -> ([Point b], [Edge a])
+    -> Bool
+polygonIsInsideOrOn = symbolicPolygonIsInsideOrOn' memoPointInPolygon
+
+symbolicPolygonIsInsideOrOn
+    :: ([Point SBV.SReal], [Edge SBV.SReal])
+    -> ([Point SBV.SReal], [Edge SBV.SReal])
+    -> SBV.SBool
+symbolicPolygonIsInsideOrOn = symbolicPolygonIsInsideOrOn' pointInPolygon
+
+symbolicPolygonIsInsideOrOn'
+    :: (Fractional edgeCoordinate, LogicOrd edgeCoordinate result)
+    => ([Edge edgeCoordinate] -> Point vertexCoordinate -> result)
+    -> ([Point vertexCoordinate], [Edge edgeCoordinate])
+    -> ([Point vertexCoordinate], [Edge edgeCoordinate])
+    -> result
+symbolicPolygonIsInsideOrOn'
+    pointMembership
+    (verticesA@(_:_:_:_), edgesA)
+    (_:_:_:_, edgesB) =
+        everyVertexOfAInsideB
+            .&&. b_not (polygonEdgesProperlyIntersect edgesA edgesB)
+  where
+    everyVertexOfAInsideB = logicAll (map (pointMembership edgesB) verticesA)
+symbolicPolygonIsInsideOrOn' _ _ _ =
+    error "symbolicPolygonIsInsideOrOn': Both polygons must have 3 vertices"
 
 --  a +-------------+ d
 --    |             |
@@ -734,6 +766,6 @@ part2 vertices = case areas of
             v@(x1,y1) <- vertices
             w@(x2,y2) <- vertices
             let rectangle = makeRectangle v w
-            guard $ x1 /= x2 && y1 /= y2 && polygonInsidePolygonTouchingOk rectangle polygon
+            guard $ x1 /= x2 && y1 /= y2 && polygonIsInsideOrOn rectangle polygon
             return (v,w)
         areas = sortOn Down $ fmap (uncurry area) rectanglesInsidePolygon

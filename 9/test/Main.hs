@@ -72,6 +72,15 @@ main = defaultMain $ testGroup "AoC5"
     , testCase "proof: generic triangle pointInPolygon (Z3)" $ do
         result <- SBV.sat symbolicPointInPolygonTriangleCounterexample
         assertBool (show result) (unsatisfiable result)
+    -- , testCase "proof: triangle polygon containment barycentric soundness (Z3)" $ do
+    --     result <- SBV.sat polygonIsInsideOrOnTriangleSoundnessCounterexample
+    --     assertBool (show result) (unsatisfiable result)
+    -- , testCase "proof: triangle polygon containment barycentric completeness (Z3)" $ do
+    --     result <- SBV.sat polygonIsInsideOrOnTriangleCompletenessCounterexample
+    --     assertBool (show result) (unsatisfiable result)
+    , testCase
+        "polygon containment rejects rectangle spanning a concave notch"
+        concaveNotchRectangleIsNotContained
     , testCase "part2 example" $ do
         input <- TIO.readFile "test_input"
         case parse parser "test_input" input of
@@ -83,6 +92,42 @@ main = defaultMain $ testGroup "AoC5"
             Left err -> assertFailure (show err)
             Right parsed -> assertEqual "part2" 1525991432 (part2 parsed)
     ]
+
+concaveNotchRectangleIsNotContained :: IO ()
+concaveNotchRectangleIsNotContained =
+    assertBool
+        "the rectangle includes the empty notch and is not contained"
+        (not (polygonIsInsideOrOn rectangle outerPolygon))
+  where
+    rectangle = (rectangleVertices, rectangleEdges)
+    outerPolygon = (outerVertices, outerEdges)
+    rectangleVertices = [(0, 0), (4, 0), (4, 4), (0, 4)]
+    rectangleEdges =
+        [ ((0, 0), (4, 0))
+        , ((4, 0), (4, 4))
+        , ((4, 4), (0, 4))
+        , ((0, 4), (0, 0))
+        ]
+    outerVertices =
+        [ (0, 0)
+        , (4, 0)
+        , (4, 4)
+        , (3, 4)
+        , (3, 1)
+        , (1, 1)
+        , (1, 4)
+        , (0, 4)
+        ]
+    outerEdges =
+        [ ((0, 0), (4, 0))
+        , ((4, 0), (4, 4))
+        , ((4, 4), (3, 4))
+        , ((3, 4), (3, 1))
+        , ((3, 1), (1, 1))
+        , ((1, 1), (1, 4))
+        , ((1, 4), (0, 4))
+        , ((0, 4), (0, 0))
+        ]
 
 proved :: SBV.ThmResult -> Bool
 proved (SBV.ThmResult (SBV.Unsatisfiable _ _)) = True
@@ -485,3 +530,51 @@ symbolicPointInPolygonTriangleCounterexample = do
         assumptions
             SBV..&& SBV.sNot
                 (pointInPolygon triangleEdges point SBV..<=> barycentricCheck)
+
+polygonIsInsideOrOnTriangleSoundnessCounterexample :: SBV.Symbolic SBV.SBool
+polygonIsInsideOrOnTriangleSoundnessCounterexample =
+    polygonIsInsideOrOnTriangleCounterexample $ \implementationCheck barycentricCheck ->
+        implementationCheck SBV..&& SBV.sNot barycentricCheck
+
+polygonIsInsideOrOnTriangleCompletenessCounterexample :: SBV.Symbolic SBV.SBool
+polygonIsInsideOrOnTriangleCompletenessCounterexample =
+    polygonIsInsideOrOnTriangleCounterexample $ \implementationCheck barycentricCheck ->
+        barycentricCheck SBV..&& SBV.sNot implementationCheck
+
+polygonIsInsideOrOnTriangleCounterexample
+    :: (SBV.SBool -> SBV.SBool -> SBV.SBool)
+    -> SBV.Symbolic SBV.SBool
+polygonIsInsideOrOnTriangleCounterexample disagreement = do
+    ax1 <- SBV.sReal "innerTriangleX1"
+    ay1 <- SBV.sReal "innerTriangleY1"
+    ax2 <- SBV.sReal "innerTriangleX2"
+    ay2 <- SBV.sReal "innerTriangleY2"
+    ax3 <- SBV.sReal "innerTriangleX3"
+    ay3 <- SBV.sReal "innerTriangleY3"
+    bx1 <- SBV.sReal "outerTriangleX1"
+    by1 <- SBV.sReal "outerTriangleY1"
+    bx2 <- SBV.sReal "outerTriangleX2"
+    by2 <- SBV.sReal "outerTriangleY2"
+    bx3 <- SBV.sReal "outerTriangleX3"
+    by3 <- SBV.sReal "outerTriangleY3"
+    let a1 = (ax1, ay1)
+        a2 = (ax2, ay2)
+        a3 = (ax3, ay3)
+        b1 = (bx1, by1)
+        b2 = (bx2, by2)
+        b3 = (bx3, by3)
+        verticesA = [a1, a2, a3]
+        verticesB = [b1, b2, b3]
+        edgesA = [(a1, a2), (a2, a3), (a3, a1)]
+        edgesB = [(b1, b2), (b2, b3), (b3, b1)]
+        triangleA = (verticesA, edgesA)
+        triangleB = (verticesB, edgesB)
+        implementationCheck = symbolicPolygonIsInsideOrOn triangleA triangleB
+        barycentricCheck = SBV.sAnd
+            [ sPointInTriangleByBarycentricCoordinates b1 b2 b3 vertex
+            | vertex <- verticesA
+            ]
+        outerTriangleDet = det2x2 (sPointDiff b2 b1, sPointDiff b3 b1)
+    pure $
+        outerTriangleDet SBV../= 0
+            SBV..&& disagreement implementationCheck barycentricCheck
