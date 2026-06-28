@@ -27,6 +27,7 @@ library
                        , data-memocombinators
                        , combinat
                        , lens
+                       , sbv
   default-language:    Haskell2010
 
 executable prog

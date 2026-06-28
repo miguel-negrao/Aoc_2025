@@ -4,6 +4,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE TypeApplications #-}
@@ -59,6 +60,9 @@ module AoC
     , solve2x2
     , lineIntersectionMatrix
     , lineIntersectionConstants
+    , BooleanLogic(..)
+    , logicAll
+    , logicAny
     ) where
 
 import Data.List
@@ -88,6 +92,51 @@ import Data.Ord (Down(..))
 import GHC.Base (leInt)
 import Data.Ratio (numerator, denominator, (%))
 import qualified Data.MemoCombinators.Class as Memo
+import qualified Data.SBV as SBV
+
+-- | Boolean operations shared by concrete calculations and SBV formulas.
+--
+-- The methods deliberately operate only on Boolean-valued expressions. Numeric
+-- equality and ordering belong in a separate abstraction over the numeric type.
+class BooleanLogic b where
+    logicTrue :: b
+    logicFalse :: b
+    logicNot :: b -> b
+    logicAnd :: b -> b -> b
+    logicOr :: b -> b -> b
+    logicXor :: b -> b -> b
+    logicImplies :: b -> b -> b
+    logicIff :: b -> b -> b
+    logicIf :: b -> b -> b -> b
+
+instance BooleanLogic Bool where
+    logicTrue = True
+    logicFalse = False
+    logicNot = not
+    logicAnd = (&&)
+    logicOr = (||)
+    logicXor = (/=)
+    logicImplies antecedent consequent = not antecedent || consequent
+    logicIff = (==)
+    logicIf condition whenTrue whenFalse =
+        if condition then whenTrue else whenFalse
+
+instance BooleanLogic SBV.SBool where
+    logicTrue = SBV.sTrue
+    logicFalse = SBV.sFalse
+    logicNot = SBV.sNot
+    logicAnd = (SBV..&&)
+    logicOr = (SBV..||)
+    logicXor = (SBV..<+>)
+    logicImplies = (SBV..=>)
+    logicIff = (SBV..<=>)
+    logicIf = SBV.ite
+
+logicAll :: BooleanLogic b => [b] -> b
+logicAll = foldr logicAnd logicTrue
+
+logicAny :: BooleanLogic b => [b] -> b
+logicAny = foldr logicOr logicFalse
 
 -- by ChatGPT
 newtype OnePerLine a = OnePerLine [a]
@@ -337,10 +386,11 @@ part2 vertices = case areas of
     where
         -- calculate edges only once. this includes converting to fractional type
         edges = verticesToEdges vertices
-        both = (vertices, edges)
+        polygon = (vertices, edges)
         rectanglesInsidePolygon = do
             v@(x1,y1) <- vertices
             w@(x2,y2) <- vertices
-            guard $ x1 /= x2 && y1 /= y2 && polygonInsidePolygonTouchingOk (makeRectangle v w) both
+            let rectangle = makeRectangle v w
+            guard $ x1 /= x2 && y1 /= y2 && polygonInsidePolygonTouchingOk rectangle polygon
             return (v,w)
         areas = sortOn Down $ fmap (uncurry area) rectanglesInsidePolygon

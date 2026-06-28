@@ -265,8 +265,12 @@ sLineSegmentIntersectsHalfRayGoingRight pointInAnalysis@(x3, _) edge@(p1, p2) =
 
 -- Created by ChatGPT
 sPointInPolygon :: [SEdge] -> SPoint -> SBV.SBool
-sPointInPolygon edges point =
-    foldr (SBV..<+>) SBV.sFalse (map (sLineSegmentIntersectsHalfRayGoingRight point) edges)
+sPointInPolygon edges point = SBV.sMod numberOfCrossings 2 SBV..== 1
+  where
+    numberOfCrossings :: SBV.SInteger
+    numberOfCrossings = sum $ map crossingCount edges
+    crossingCount edge =
+        SBV.ite (sLineSegmentIntersectsHalfRayGoingRight point edge) 1 0
 
 -- Created by ChatGPT
 sPointOnLineSegment :: SEdge -> SPoint -> SBV.SBool
@@ -280,15 +284,23 @@ sPointOnAnyEdge edges point = SBV.sOr (map (`sPointOnLineSegment` point) edges)
 
 -- Created by ChatGPT
 symbolicPointInPolygonMatchesRectangleCheck
-    :: SBV.SReal
-    -> SBV.SReal
-    -> SBV.SReal
-    -> SBV.SReal
-    -> SBV.SReal
-    -> SBV.SReal
+    :: SBV.Forall "rectangleX1" SBV.AlgReal
+    -> SBV.Forall "rectangleY1" SBV.AlgReal
+    -> SBV.Forall "rectangleX2" SBV.AlgReal
+    -> SBV.Forall "rectangleY2" SBV.AlgReal
+    -> SBV.Forall "pointX" SBV.AlgReal
+    -> SBV.Forall "pointY" SBV.AlgReal
     -> SBV.SBool
-symbolicPointInPolygonMatchesRectangleCheck x1 y1 x2 y2 x y =
-    (x1 SBV../= x2 SBV..&& y1 SBV../= y2 SBV..&& SBV.sNot (sPointOnAnyEdge rectangleEdges point))
+symbolicPointInPolygonMatchesRectangleCheck
+    (SBV.Forall x1)
+    (SBV.Forall y1)
+    (SBV.Forall x2)
+    (SBV.Forall y2)
+    (SBV.Forall x)
+    (SBV.Forall y) =
+    (x1 SBV../= x2 SBV..&& y1 SBV../= y2 
+        --SBV..&& SBV.sNot (sPointOnAnyEdge rectangleEdges point))
+    )
         SBV..=> (sPointInPolygon rectangleEdges point SBV..<=> sIsInRect ((x1, y1), (x2, y2)) point)
   where
     point = (x, y)
@@ -317,25 +329,33 @@ sPointInTriangleByBarycentricCoordinates (x1, y1) (x2, y2) (x3, y3) (x, y) =
 
 -- Created by ChatGPT
 symbolicPointInPolygonMatchesTriangleBarycentricCheck
-    :: SBV.SReal
-    -> SBV.SReal
-    -> SBV.SReal
-    -> SBV.SReal
-    -> SBV.SReal
-    -> SBV.SReal
-    -> SBV.SReal
-    -> SBV.SReal
+    :: SBV.Forall "triangleX1" SBV.AlgReal
+    -> SBV.Forall "triangleY1" SBV.AlgReal
+    -> SBV.Forall "triangleX2" SBV.AlgReal
+    -> SBV.Forall "triangleY2" SBV.AlgReal
+    -> SBV.Forall "triangleX3" SBV.AlgReal
+    -> SBV.Forall "triangleY3" SBV.AlgReal
+    -> SBV.Forall "pointX" SBV.AlgReal
+    -> SBV.Forall "pointY" SBV.AlgReal
     -> SBV.SBool
-symbolicPointInPolygonMatchesTriangleBarycentricCheck x1 y1 x2 y2 x3 y3 x y =
+symbolicPointInPolygonMatchesTriangleBarycentricCheck
+    (SBV.Forall x1)
+    (SBV.Forall y1)
+    (SBV.Forall x2)
+    (SBV.Forall y2)
+    (SBV.Forall x3)
+    (SBV.Forall y3)
+    (SBV.Forall x)
+    (SBV.Forall y) =
     ( triangleDet SBV../= 0
-        SBV..&& y SBV../= y1
-        SBV..&& y SBV../= y2
-        SBV..&& y SBV../= y3
-        SBV..&& SBV.sNot (sPointOnAnyEdge triangleEdges point)
+        SBV..&& pointY SBV../= y1
+        SBV..&& pointY SBV../= y2
+        SBV..&& pointY SBV../= y3
+        --SBV..&& SBV.sNot (sPointOnAnyEdge triangleEdges point)
     )
         SBV..=> (sPointInPolygon triangleEdges point SBV..<=> barycentricCheck)
   where
-    point = (x, y)
+    point@(_, pointY) = (x, y)
     p1 = (x1, y1)
     p2 = (x2, y2)
     p3 = (x3, y3)
