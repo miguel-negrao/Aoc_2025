@@ -5,6 +5,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE TypeApplications #-}
@@ -61,8 +62,17 @@ module AoC
     , lineIntersectionMatrix
     , lineIntersectionConstants
     , BooleanLogic(..)
+    , LogicEq(..)
+    , LogicOrd(..)
     , logicAll
     , logicAny
+    , isInInterval
+    , isInRect
+    , pointEq
+    , lineSegmentsIntersectAtInteriorPoint
+    , lineSegmentIntersectsHalfRayGoingRight
+    , oddParity
+    , pointInPolygon
     ) where
 
 import Data.List
@@ -98,45 +108,125 @@ import qualified Data.SBV as SBV
 --
 -- The methods deliberately operate only on Boolean-valued expressions. Numeric
 -- equality and ordering belong in a separate abstraction over the numeric type.
+infixr 3 .&&.
+infixr 2 .||., .<+>.
+infixr 1 .=>., .<=>.
+
 class BooleanLogic b where
-    logicTrue :: b
-    logicFalse :: b
-    logicNot :: b -> b
-    logicAnd :: b -> b -> b
-    logicOr :: b -> b -> b
-    logicXor :: b -> b -> b
-    logicImplies :: b -> b -> b
-    logicIff :: b -> b -> b
-    logicIf :: b -> b -> b -> b
+    true :: b
+    false :: b
+    b_not :: b -> b
+    (.&&.) :: b -> b -> b
+    (.||.) :: b -> b -> b
+    (.<+>.) :: b -> b -> b
+    (.=>.) :: b -> b -> b
+    (.<=>.) :: b -> b -> b
+    b_ite :: b -> b -> b -> b
+
+-- | Equality whose result can be either a concrete or symbolic Boolean.
+infix 4 .==., ./=.
+
+class BooleanLogic b => LogicEq a b where
+    (.==.) :: a -> a -> b
+    (./=.) :: a -> a -> b
+    left ./=. right = b_not (left .==. right)
+
+-- | Ordering whose result can be either a concrete or symbolic Boolean.
+infix 4 .<., .<=., .>., .>=.
+
+class (BooleanLogic b, LogicEq a b) => LogicOrd a b where
+    (.<.) :: a -> a -> b
+    (.<=.) :: a -> a -> b
+    (.>.) :: a -> a -> b
+    (.>=.) :: a -> a -> b
 
 instance BooleanLogic Bool where
-    logicTrue = True
-    logicFalse = False
-    logicNot = not
-    logicAnd = (&&)
-    logicOr = (||)
-    logicXor = (/=)
-    logicImplies antecedent consequent = not antecedent || consequent
-    logicIff = (==)
-    logicIf condition whenTrue whenFalse =
+    true = True
+    false = False
+    b_not = not
+    (.&&.) = (&&)
+    (.||.) = (||)
+    (.<+>.) = (/=)
+    antecedent .=>. consequent = not antecedent || consequent
+    (.<=>.) = (==)
+    b_ite condition whenTrue whenFalse =
         if condition then whenTrue else whenFalse
 
 instance BooleanLogic SBV.SBool where
-    logicTrue = SBV.sTrue
-    logicFalse = SBV.sFalse
-    logicNot = SBV.sNot
-    logicAnd = (SBV..&&)
-    logicOr = (SBV..||)
-    logicXor = (SBV..<+>)
-    logicImplies = (SBV..=>)
-    logicIff = (SBV..<=>)
-    logicIf = SBV.ite
+    true = SBV.sTrue
+    false = SBV.sFalse
+    b_not = SBV.sNot
+    (.&&.) = (SBV..&&)
+    (.||.) = (SBV..||)
+    (.<+>.) = (SBV..<+>)
+    (.=>.) = (SBV..=>)
+    (.<=>.) = (SBV..<=>)
+    b_ite = SBV.ite
+
+instance Eq a => LogicEq a Bool where
+    (.==.) = (==)
+    (./=.) = (/=)
+
+instance LogicEq SBV.SReal SBV.SBool where
+    (.==.) = (SBV..==)
+    (./=.) = (SBV../=)
+
+instance Ord a => LogicOrd a Bool where
+    (.<.) = (<)
+    (.<=.) = (<=)
+    (.>.) = (>)
+    (.>=.) = (>=)
+
+instance LogicOrd SBV.SReal SBV.SBool where
+    (.<.) = (SBV..<)
+    (.<=.) = (SBV..<=)
+    (.>.) = (SBV..>)
+    (.>=.) = (SBV..>=)
 
 logicAll :: BooleanLogic b => [b] -> b
-logicAll = foldr logicAnd logicTrue
+logicAll = foldr (.&&.) true
 
 logicAny :: BooleanLogic b => [b] -> b
-logicAny = foldr logicOr logicFalse
+logicAny = foldr (.||.) false
+
+-- ChatGPT
+-- | True exactly when an odd number of elements are true.
+--
+-- XOR is true exactly when its two inputs differ:
+--
+-- @
+-- False XOR False = False
+-- False XOR True  = True
+-- True  XOR False = True
+-- True  XOR True  = False
+-- @
+--
+-- Treat the accumulator as answering:
+--
+-- /Have I seen an odd number of crossings?/
+--
+-- Start with 'False', because zero crossings is even.
+-- For every edge:
+--
+-- * No crossing ('False') -> leave the answer unchanged.
+-- * Crossing ('True') -> flip the answer.
+--
+-- >>> oddParity [True, False, False]
+-- True
+-- >>> oddParity [True, False, True]
+-- False
+--
+-- The second example reduces from right to left as follows:
+--
+-- @
+-- foldr (.<+>.) False [True, False, True]
+--   = True  .<+>. (False .<+>. (True .<+>. False))
+--   = True  .<+>. (False .<+>. True)
+--   = True  .<+>. True
+--   = False
+-- @
+oddParity :: BooleanLogic b => [b] -> b
+oddParity = foldr (.<+>.) false
 
 -- by ChatGPT
 newtype OnePerLine a = OnePerLine [a]
@@ -200,9 +290,12 @@ solve2x2' a@((a1,b1),(a2,b2)) (c1,c2) det = ( (c1*b2-b1*c2) / det, (a1*c2 - c1 *
 
 -- |
 -- Cramers rule
--- Returns a unique solution if it exists. If there are many solutions or no solution returns Nothing.
-solve2x2 :: (Fractional a, Eq a) => (Point a, Point a) -> Point a -> Maybe (Point a)
-solve2x2 a@((a1,b1),(a2,b2)) c@(c1,c2) = if det /= 0 then Just res else Nothing where
+-- Returns whether the system has a unique solution and the solution calculated
+-- by Cramer's rule. The returned point is meaningful only when the Boolean is
+-- true. Keeping the condition as a value allows the same function to work with
+-- both Bool and SBV.SBool.
+solve2x2 :: (Fractional a, LogicEq a b) => (Point a, Point a) -> Point a -> (b, Point a)
+solve2x2 a c = (det ./=. 0, res) where
     det = det2x2 a
     res = solve2x2' a c det
 
@@ -232,41 +325,60 @@ lineIntersectionConstants :: Num a => Edge a -> Edge a -> Point a
 lineIntersectionConstants ((x1, y1), (x2, y2)) ((x3, y3), (x4, y4)) =
     (x1 * y2 - x2 * y1, x3 * y4 - x4 * y3)
 
-isInInterval :: Ord a => a -> a -> a -> Bool
-isInInterval x1 x2 x3 = if x1 <= x2 then (x1 <= x3 && x3 <= x2) else (x2 <= x3 && x3 <= x1)
+isInInterval :: LogicOrd a b => a -> a -> a -> b
+isInInterval x1 x2 x3 =
+    b_ite
+        (x1 .<=. x2)
+        (x1 .<=. x3 .&&. x3 .<=. x2)
+        (x2 .<=. x3 .&&. x3 .<=. x1)
 
-isInRect :: (Ord a) => Edge a -> Point a -> Bool
-isInRect ((x1,y1), (x2,y2)) (x3,y3) = isInInterval x1 x2 x3 && isInInterval y1 y2 y3
+isInRect :: LogicOrd a b => Edge a -> Point a -> b
+isInRect ((x1,y1), (x2,y2)) (x3,y3) =
+    isInInterval x1 x2 x3 .&&. isInInterval y1 y2 y3
 
-lineSegmentsIntersectAtInteriorPoint :: (Ord a, Fractional a, Show a) => Edge a -> Edge a -> Bool
-lineSegmentsIntersectAtInteriorPoint a@(p1, p2) b@(p3, p4)
-    | p1 == p2 = error $ "lineSegmentsIntersectAtInteriorPoint: first segment has identical endpoints: " <> show p1 <> " " <> show p2
-    | p3 == p4 = error "lineSegmentsIntersectAtInteriorPoint: second segment has identical endpoints"
-    | otherwise = case sol of
-        -- Unique solution
-        Just p
-            | p == p1 || p == p2 || p == p3 || p == p4 -> False
-            | not (isInRect a p && isInRect b p) -> False
-            | otherwise -> True
-        -- No solution or multiple solutions
-        Nothing -> False
-    where
-        sol = solve2x2 (lineIntersectionMatrix a b) (lineIntersectionConstants a b)
+pointEq :: LogicEq a b => Point a -> Point a -> b
+pointEq (x1, y1) (x2, y2) = x1 .==. x2 .&&. y1 .==. y2
 
-lineSegmentIntersectsHalfRayGoingRight :: (Ord a, Fractional a) => Point a -> Edge a -> Bool
-lineSegmentIntersectsHalfRayGoingRight pointInAnalysis@(x3,_) a@(p1, p2)
-    | p1 == p2 = error "lineSegmentsIntersectAtInteriorPoint: first segment has identical endpoints"
-    | otherwise = case sol of
-        -- Unique solution
-        Just (p@(x,y))
-            | p == p1 || p == p2 || p == pointInAnalysis -> False
-            | not (isInRect a p && x3 < x) -> False
-            | otherwise -> True
-        -- No solution or multiple solutions
-        Nothing -> False
-    where
-        b = (pointInAnalysis, pointSum pointInAnalysis (1,0))
-        sol = solve2x2 (lineIntersectionMatrix a b) (lineIntersectionConstants a b)
+lineSegmentsIntersectAtInteriorPoint
+    :: (Fractional a, LogicOrd a b)
+    => Edge a
+    -> Edge a
+    -> b
+lineSegmentsIntersectAtInteriorPoint edgeA@(p1, p2) edgeB@(p3, p4) =
+    b_not (pointEq p1 p2)
+        .&&. b_not (pointEq p3 p4)
+        .&&. hasUniqueIntersection
+        .&&. b_not (pointEq intersection p1)
+        .&&. b_not (pointEq intersection p2)
+        .&&. b_not (pointEq intersection p3)
+        .&&. b_not (pointEq intersection p4)
+        .&&. isInRect edgeA intersection
+        .&&. isInRect edgeB intersection
+  where
+    (hasUniqueIntersection, intersection) =
+        solve2x2
+            (lineIntersectionMatrix edgeA edgeB)
+            (lineIntersectionConstants edgeA edgeB)
+
+lineSegmentIntersectsHalfRayGoingRight
+    :: (Fractional a, LogicOrd a b)
+    => Point a
+    -> Edge a
+    -> b
+lineSegmentIntersectsHalfRayGoingRight pointInAnalysis@(x3, _) edge@(p1, p2) =
+    b_not (pointEq p1 p2)
+        .&&. hasUniqueIntersection
+        .&&. b_not (pointEq intersection p1)
+        .&&. b_not (pointEq intersection p2)
+        .&&. b_not (pointEq intersection pointInAnalysis)
+        .&&. isInRect edge intersection
+        .&&. x3 .<. intersectionX
+  where
+    ray = (pointInAnalysis, pointSum pointInAnalysis (1, 0))
+    (hasUniqueIntersection, intersection@(intersectionX, _)) =
+        solve2x2
+            (lineIntersectionMatrix edge ray)
+            (lineIntersectionConstants edge ray)
 
 memoIntegralPoint :: Integral a => Memo (Point a)
 memoIntegralPoint = Memo.pair Memo.integral Memo.integral
@@ -282,7 +394,9 @@ memoRationalPointPoint = Memo.pair memoRational memoRational
 memoEdge :: Memo (Edge Rational)
 memoEdge = Memo.pair memoRationalPointPoint memoRationalPointPoint
 
-memoLineSegmentIntersectsHalfRayGoingRight = Memo.memo2 memoRationalPointPoint memoEdge lineSegmentIntersectsHalfRayGoingRight
+memoLineSegmentIntersectsHalfRayGoingRight :: Point Rational -> Edge Rational -> Bool
+memoLineSegmentIntersectsHalfRayGoingRight =
+    Memo.memo2 memoRationalPointPoint memoEdge lineSegmentIntersectsHalfRayGoingRight
 
 verticesToEdges' :: [Point a] -> [Edge a]
 verticesToEdges' xs = zipWith f xs (drop 1 $ cycle xs) where
@@ -300,7 +414,7 @@ intToDouble = fromIntegral
 
 -- |
 -- Rational should not have precision problems, but maybe too slow.
-polygonEdgesProperlyIntersect :: (Ord a, Fractional a, Show a) => [Edge a] -> [Edge a] -> Bool
+polygonEdgesProperlyIntersect :: (Ord a, Fractional a) => [Edge a] -> [Edge a] -> Bool
 polygonEdgesProperlyIntersect edges_a edges_b = not $ null intesectingEdges where
     intesectingEdges = do
         edge_a <- edges_a
@@ -342,15 +456,17 @@ polygonEdgesProperlyIntersect edges_a edges_b = not $ null intesectingEdges wher
 --                  +---------------------+
 --                      1.036 s ±  70 ms
 
-pointInPolygon :: (Ord a, Fractional a, Integral b) => [Edge a] -> Point b -> Bool
-pointInPolygon edges p = odd numberOfCrossings where
-    p' = over both fromIntegral p
-    numberOfCrossings = length $ filter f edges
-    f edge = lineSegmentIntersectsHalfRayGoingRight p' edge
+pointInPolygon
+    :: (Fractional a, LogicOrd a b)
+    => [Edge a]
+    -> Point a
+    -> b
+pointInPolygon edges point =
+    oddParity (map (lineSegmentIntersectsHalfRayGoingRight point) edges)
 
 memoPointInPolygon  :: (Ord a, Fractional a, Integral b) => [Edge a] -> Point b -> Bool
 memoPointInPolygon edges p = memoIntegralPoint memoPointInPolygon' p where
-    memoPointInPolygon' = pointInPolygon edges
+    memoPointInPolygon' = pointInPolygon edges . over both fromIntegral
 
 -- |
 -- After tring a couple of times on my own, I didn't manage to find a criteria that worked, so I asked ChatGPT for help:
@@ -358,7 +474,7 @@ memoPointInPolygon edges p = memoIntegralPoint memoPointInPolygon' p where
 -- 2. No edge of A may strictly/properly cross an edge of B.
 -- 3. Ignore boundary touches and collinear overlaps.
 -- Todo: check in SBV
-polygonInsidePolygonTouchingOk :: (Show a, Fractional a, Ord a, Integral b) => ([Point b], [Edge a]) -> ([Point b], [Edge a]) -> Bool
+polygonInsidePolygonTouchingOk :: (Fractional a, Ord a, Integral b) => ([Point b], [Edge a]) -> ([Point b], [Edge a]) -> Bool
 polygonInsidePolygonTouchingOk a@(verticesA@(a1:a2:a3:_),edges_a) b@(verticesB@(b1:b2:b3:_),edges_b) = everyVerticeOfAinsideB && not (polygonEdgesProperlyIntersect edges_a edges_b) where
     everyVerticeOfAinsideB = all (memoPointInPolygon edges_b) verticesA
 polygonInsidePolygonTouchingOk _ _ = error "polygonInsidePolygonTouchingOk: Both polygons must have 3 vertices"
