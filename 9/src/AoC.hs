@@ -412,6 +412,199 @@ intToRational = fromIntegral
 intToDouble :: Int -> Double
 intToDouble = fromIntegral
 
+{--
+MN thinking:
+parametric version of line segment
+s(t) = p1 + (p2-p1)*t
+
+p = s(t)
+<=> p = p1 + (p2-p1)*t
+<=> 
+    (x - x1) = (x2-x1)t ∧
+    (y - y1) = (y2-y1)t
+help from chagpt: cross-multiply as to no divide by ZERO
+<=> 
+    (x - x1)(y2-y1) = (x2-x1)(y2-y1)t ∧
+    (y - y1)(x2-x1) = (y2-y1)(x2-x1)t
+
+=> 
+(a = b && b = c => a = c transitivity)
+p = s(t) => (x - x1)(y2-y1) = (y - y1)(x2-x1)
+
+This is the main idea. But actually the other direction works too.
+Proof by chagpt:
+
+Let:
+
+p₁ = (x₁, y₁)
+p₂ = (x₂, y₂)
+p  = (x, y)
+
+Definition of the closed line segment:
+
+p ∈ [p₁, p₂]
+⇔
+∃t ∈ [0,1] such that p = p₁ + t(p₂ − p₁)
+
+Define:
+
+C ⇔ (x − x₁)(y₂ − y₁) = (y − y₁)(x₂ − x₁)
+
+B ⇔ min(x₁,x₂) ≤ x ≤ max(x₁,x₂)
+  ∧ min(y₁,y₂) ≤ y ≤ max(y₁,y₂)
+
+We prove:
+
+p ∈ [p₁,p₂] ⇔ C ∧ B
+
+
+Forward direction: p ∈ [p₁,p₂] ⇒ C ∧ B
+
+Assume p ∈ [p₁,p₂].
+
+Then:
+
+∃t ∈ [0,1] such that p = p₁ + t(p₂ − p₁)
+
+Therefore:
+
+x − x₁ = t(x₂ − x₁)
+y − y₁ = t(y₂ − y₁)
+
+Multiplying the first equation by y₂ − y₁:
+
+(x − x₁)(y₂ − y₁)
+  = t(x₂ − x₁)(y₂ − y₁)
+
+Multiplying the second equation by x₂ − x₁:
+
+(y − y₁)(x₂ − x₁)
+  = t(y₂ − y₁)(x₂ − x₁)
+
+The right-hand sides are equal, so:
+
+(x − x₁)(y₂ − y₁)
+  = (y − y₁)(x₂ − x₁)
+
+Therefore C holds.
+
+For the x-coordinate:
+
+x = (1 − t)x₁ + tx₂
+
+If x₁ ≤ x₂:
+
+x − x₁ = t(x₂ − x₁) ≥ 0
+x₂ − x = (1 − t)(x₂ − x₁) ≥ 0
+
+Therefore:
+
+x₁ ≤ x ≤ x₂
+
+If x₂ ≤ x₁, the same argument with the endpoints reversed gives:
+
+x₂ ≤ x ≤ x₁
+
+Hence:
+
+min(x₁,x₂) ≤ x ≤ max(x₁,x₂)
+
+The same argument gives:
+
+min(y₁,y₂) ≤ y ≤ max(y₁,y₂)
+
+Therefore B holds.
+
+Thus:
+
+p ∈ [p₁,p₂] ⇒ C ∧ B
+
+
+Reverse direction: C ∧ B ⇒ p ∈ [p₁,p₂]
+
+Assume C ∧ B.
+
+Case 1: p₁ = p₂
+
+Then B describes a bounding rectangle containing only p₁.
+
+Therefore:
+
+p = p₁
+
+Choose t = 0. Then:
+
+p = p₁ + 0(p₂ − p₁)
+
+Thus:
+
+p ∈ [p₁,p₂]
+
+
+Case 2: p₁ ≠ p₂
+
+At least one of these is nonzero:
+
+x₂ − x₁ ≠ 0
+or
+y₂ − y₁ ≠ 0
+
+If x₂ − x₁ ≠ 0, define:
+
+t = (x − x₁)/(x₂ − x₁)
+
+Condition C implies:
+
+y − y₁ = t(y₂ − y₁)
+
+Therefore:
+
+p = p₁ + t(p₂ − p₁)
+
+Since x lies between x₁ and x₂, we have:
+
+0 ≤ t ≤ 1
+
+If x₂ − x₁ = 0, then y₂ − y₁ ≠ 0. Define:
+
+t = (y − y₁)/(y₂ − y₁)
+
+Condition C implies:
+
+x = x₁ = x₂
+
+Since y lies between y₁ and y₂:
+
+0 ≤ t ≤ 1
+
+Therefore, in either case:
+
+∃t ∈ [0,1] such that p = p₁ + t(p₂ − p₁)
+
+Thus:
+
+C ∧ B ⇒ p ∈ [p₁,p₂]
+
+
+Conclusion:
+
+p ∈ [p₁,p₂]
+⇔
+(x − x₁)(y₂ − y₁) = (y − y₁)(x₂ − x₁)
+∧
+min(x₁,x₂) ≤ x ≤ max(x₁,x₂)
+∧
+min(y₁,y₂) ≤ y ≤ max(y₁,y₂)
+--}
+pointOnEdge :: (Num a, LogicEq a b, LogicEq (a,a) b, LogicOrd a b) => Edge a -> Point a -> b
+pointOnEdge edge@(p1@(x1,y1),p2@(x2,y2)) p@(x,y) = 
+    p .==. p1
+        .||. p .==. p2
+        .||. (
+            ((x - x1)*(y2-y1) .==. (y - y1)*(x2-x1)) .&&.
+            (isInRect edge p)
+        )
+
 -- |
 -- Rational should not have precision problems, but maybe too slow.
 polygonEdgesProperlyIntersect :: (Ord a, Fractional a) => [Edge a] -> [Edge a] -> Bool
