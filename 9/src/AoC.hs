@@ -66,14 +66,17 @@ module AoC
     , lineIntersectionMatrix
     , lineIntersectionConstants
     , BooleanLogic(..)
+    , LogicIte(..)
     , LogicEq(..)
     , LogicOrd(..)
     , logicAll
     , logicAny
+    , logicSort
+    , logicSortOn
     , isInInterval
     , isInRect
     , pointEq
-    , lineSegmentsIntersectAtInteriorPoint
+    , hasLineSegmentsIntersectAtInteriorPoint
     , lineSegmentIntersectsHalfRayGoingRight
     , oddParity
     , pointInPolygon
@@ -107,7 +110,7 @@ import Text.Megaparsec.Debug
 
 import Math.Combinat.Sets (combine, choose)
 import Data.Ord (Down(..))
-import GHC.Base (leInt)
+import GHC.Base (leInt, DoubleBox)
 import Data.Ratio (numerator, denominator, (%))
 import qualified Data.MemoCombinators.Class as Memo
 import qualified Data.SBV as SBV
@@ -120,6 +123,7 @@ infixr 3 .&&.
 infixr 2 .||., .<+>.
 infixr 1 .=>., .<=>.
 
+-- ChatGPT
 class BooleanLogic b where
     true :: b
     false :: b
@@ -129,11 +133,15 @@ class BooleanLogic b where
     (.<+>.) :: b -> b -> b
     (.=>.) :: b -> b -> b
     (.<=>.) :: b -> b -> b
-    b_ite :: b -> b -> b -> b
+
+-- | Conditional selection shared by concrete values and symbolic values.
+class LogicIte condition value where
+    logicIte :: condition -> value -> value -> value
 
 -- | Equality whose result can be either a concrete or symbolic Boolean.
 infix 4 .==., ./=.
 
+-- ChatGPT
 class BooleanLogic b => LogicEq a b where
     (.==.) :: a -> a -> b
     (./=.) :: a -> a -> b
@@ -142,12 +150,14 @@ class BooleanLogic b => LogicEq a b where
 -- | Ordering whose result can be either a concrete or symbolic Boolean.
 infix 4 .<., .<=., .>., .>=.
 
+-- ChatGPT
 class (BooleanLogic b, LogicEq a b) => LogicOrd a b where
     (.<.) :: a -> a -> b
     (.<=.) :: a -> a -> b
     (.>.) :: a -> a -> b
     (.>=.) :: a -> a -> b
 
+-- ChatGPT
 instance BooleanLogic Bool where
     true = True
     false = False
@@ -157,9 +167,8 @@ instance BooleanLogic Bool where
     (.<+>.) = (/=)
     antecedent .=>. consequent = not antecedent || consequent
     (.<=>.) = (==)
-    b_ite condition whenTrue whenFalse =
-        if condition then whenTrue else whenFalse
 
+-- ChatGPT
 instance BooleanLogic SBV.SBool where
     true = SBV.sTrue
     false = SBV.sFalse
@@ -169,33 +178,75 @@ instance BooleanLogic SBV.SBool where
     (.<+>.) = (SBV..<+>)
     (.=>.) = (SBV..=>)
     (.<=>.) = (SBV..<=>)
-    b_ite = SBV.ite
 
+-- ChatGPT
+instance LogicIte Bool value where
+    logicIte condition whenTrue whenFalse =
+        if condition then whenTrue else whenFalse
+
+-- ChatGPT
+instance SBV.Mergeable value => LogicIte SBV.SBool value where
+    logicIte = SBV.ite
+
+-- ChatGPT
 instance Eq a => LogicEq a Bool where
     (.==.) = (==)
     (./=.) = (/=)
 
+-- ChatGPT
 instance LogicEq SBV.SReal SBV.SBool where
     (.==.) = (SBV..==)
     (./=.) = (SBV../=)
 
+-- ChatGPT
 instance Ord a => LogicOrd a Bool where
     (.<.) = (<)
     (.<=.) = (<=)
     (.>.) = (>)
     (.>=.) = (>=)
 
+-- ChatGPT
 instance LogicOrd SBV.SReal SBV.SBool where
     (.<.) = (SBV..<)
     (.<=.) = (SBV..<=)
     (.>.) = (SBV..>)
     (.>=.) = (SBV..>=)
 
+-- ChatGPT
 logicAll :: BooleanLogic b => [b] -> b
 logicAll = foldr (.&&.) true
 
+-- ChatGPT
 logicAny :: BooleanLogic b => [b] -> b
 logicAny = foldr (.||.) false
+
+-- ChatGPT
+-- | Insertion sort whose comparisons and conditional swaps may be symbolic.
+-- The list length is fixed; symbolic conditions select which value occupies
+-- each output position.
+logicSort
+    :: LogicIte condition value
+    => (value -> value -> condition)
+    -> [value]
+    -> [value]
+logicSort ordering = logicSortOn ordering id
+
+-- ChatGPT
+logicSortOn
+    :: LogicIte condition value
+    => (key -> key -> condition)
+    -> (value -> key)
+    -> [value]
+    -> [value]
+logicSortOn ordering key = foldr insert []
+  where
+    insert value [] = [value]
+    insert value (next:rest) =
+        smaller : insert larger rest
+      where
+        valueComesFirst = ordering (key value) (key next)
+        smaller = logicIte valueComesFirst value next
+        larger = logicIte valueComesFirst next value
 
 -- ChatGPT
 -- | True exactly when an odd number of elements are true.
@@ -333,10 +384,13 @@ lineIntersectionConstants :: Num a => Edge a -> Edge a -> Point a
 lineIntersectionConstants ((x1, y1), (x2, y2)) ((x3, y3), (x4, y4)) =
     (x1 * y2 - x2 * y1, x3 * y4 - x4 * y3)
 
-isInInterval :: LogicOrd a b => a -> a -> a -> b
+booleanIte :: (BooleanLogic b) => b -> b -> b -> b
+booleanIte cond a b = (cond .&&. b) .||. ((b_not cond) .&&. b) 
+
+isInInterval :: forall a b. (LogicOrd a b) => a -> a -> a -> b
 isInInterval x1 x2 x3 =
-    b_ite
-        (x1 .<=. x2)
+        booleanIte
+        (x1 .<=. x2) 
         (x1 .<=. x3 .&&. x3 .<=. x2)
         (x2 .<=. x3 .&&. x3 .<=. x1)
 
@@ -347,13 +401,26 @@ isInRect ((x1,y1), (x2,y2)) (x3,y3) =
 pointEq :: LogicEq a b => Point a -> Point a -> b
 pointEq (x1, y1) (x2, y2) = x1 .==. x2 .&&. y1 .==. y2
 
-lineSegmentsIntersectAtInteriorPoint
+
+hasLineSegmentsIntersectAtInteriorPoint
     :: (Fractional a, LogicOrd a b)
     => Edge a
     -> Edge a
     -> b
-lineSegmentsIntersectAtInteriorPoint edgeA@(p1, p2) edgeB@(p3, p4) =
-    b_not (pointEq p1 p2)
+hasLineSegmentsIntersectAtInteriorPoint edgeA edgeB = fst $ lineSegmentIntersectionAtInteriorPoint edgeA edgeB
+
+lineSegmentIntersectionAtInteriorPoint
+    :: (Fractional a, LogicOrd a b)
+    => Edge a
+    -> Edge a
+    -> (b, Point a)
+lineSegmentIntersectionAtInteriorPoint edgeA@(p1, p2) edgeB@(p3, p4) = (intersects, intersection)
+  where
+    (hasUniqueIntersection, intersection) =
+        solve2x2
+            (lineIntersectionMatrix edgeA edgeB)
+            (lineIntersectionConstants edgeA edgeB)
+    intersects = b_not (pointEq p1 p2)
         .&&. b_not (pointEq p3 p4)
         .&&. hasUniqueIntersection
         .&&. b_not (pointEq intersection p1)
@@ -362,11 +429,8 @@ lineSegmentsIntersectAtInteriorPoint edgeA@(p1, p2) edgeB@(p3, p4) =
         .&&. b_not (pointEq intersection p4)
         .&&. isInRect edgeA intersection
         .&&. isInRect edgeB intersection
-  where
-    (hasUniqueIntersection, intersection) =
-        solve2x2
-            (lineIntersectionMatrix edgeA edgeB)
-            (lineIntersectionConstants edgeA edgeB)
+
+    
 
 -- | Return this edge's contribution to the odd-even crossing count for the
 -- horizontal half-ray starting at the point and going right.
@@ -651,7 +715,7 @@ polygonEdgesProperlyIntersect
     -> b
 polygonEdgesProperlyIntersect edgesA edgesB =
     logicAny
-        [ lineSegmentsIntersectAtInteriorPoint edgeA edgeB
+        [ hasLineSegmentsIntersectAtInteriorPoint edgeA edgeB
         | edgeA <- edgesA
         , edgeB <- edgesB
         ]
@@ -701,6 +765,53 @@ pointInPolygon edges point = pointOnAnyEdge edges point .||. isInside where
 memoPointInPolygon  :: (Ord a, Fractional a, Integral b) => [Edge a] -> Point b -> Bool
 memoPointInPolygon edges p = memoIntegralPoint memoPointInPolygon' p where
     memoPointInPolygon' = pointInPolygon edges . over both fromIntegral
+
+
+
+-- |
+-- Intesection with endpoints of edge is allowed but not with endpoints of line segment
+lineSegmentEdgeIntersection
+    :: (Fractional a, LogicOrd a b)
+    => Edge a
+    -> Edge a
+    -> (b, Point a)
+lineSegmentEdgeIntersection ls@(p1, p2) edge@(p3, p4) = (intersects, intersection)
+  where
+    (hasUniqueIntersection, intersection) =
+        solve2x2
+            (lineIntersectionMatrix ls edge)
+            (lineIntersectionConstants ls edge)
+    intersects = 
+             b_not (pointEq p1 p2)
+        .&&. b_not (pointEq p3 p4)
+        .&&. hasUniqueIntersection
+        .&&. b_not (pointEq intersection p1)
+        .&&. b_not (pointEq intersection p2)
+        .&&. isInRect ls intersection
+        .&&. isInRect edge intersection
+
+sortPointsOnLineSegment :: [Point a] -> [Point a]
+sortPointsOnLineSegment xs = undefined
+
+-- |
+-- Algorithm:
+--
+-- For a an edge e:
+
+-- 1. Find all intersections between e and the polygon boundary.
+-- 2. Add the two endpoints of e.
+-- 3. For collinear overlaps, add the overlap endpoints.
+-- 4. Sort all these points along e.
+-- 5. Test:
+--    - every cut point;
+--    - the midpoint between every consecutive pair.
+-- Require every tested point to be inside or on boundary.
+--
+lineSegmentIsInsideOrOn :: forall a b . (Fractional a, LogicOrd a b) => ([Point a],[Edge a]) -> Edge a -> b
+lineSegmentIsInsideOrOn (vertices, edges) segment = undefined where
+    intersections :: [(b, Point a)]
+    intersections = fmap (lineSegmentIntersectionAtInteriorPoint segment) edges
+    xs = intersections ++ fmap (\p -> (true, p)) vertices
 
 -- |
 -- After tring a couple of times on my own, I didn't manage to find a criteria that worked, so I asked ChatGPT for help:

@@ -42,6 +42,12 @@ main = defaultMain $ testGroup "AoC5"
     , testCase "nonzero determinant implies one solution (Z3)" $ do
         result <- SBV.prove nonzeroDeterminantImpliesOneSolution
         assertBool (show result) (proved result)
+    , testCase "logicSort sorts concrete values" $
+        assertEqual "sorted values" [1, 2, 3, 4]
+            (logicSort ((<=) :: Int -> Int -> Bool) [3, 1, 4, 2])
+    , testCase "logicSort sorts symbolic values (Z3)" $ do
+        result <- SBV.prove symbolicLogicSortOrdersThree
+        assertBool (show result) (proved result)
     , testCase "proper segment intersection uses shared implementation (Z3)" $ do
         result <- SBV.prove symbolicProperSegmentIntersectionExamples
         assertBool (show result) (proved result)
@@ -136,15 +142,38 @@ unsatisfiable _ = False
 
 symbolicProperSegmentIntersectionExamples :: SBV.SBool
 symbolicProperSegmentIntersectionExamples =
-    lineSegmentsIntersectAtInteriorPoint crossingA crossingB
+    hasLineSegmentsIntersectAtInteriorPoint crossingA crossingB
         .&&. b_not
-            (lineSegmentsIntersectAtInteriorPoint touchingA touchingB)
+            (hasLineSegmentsIntersectAtInteriorPoint touchingA touchingB)
   where
     crossingA, crossingB, touchingA, touchingB :: SEdge
     crossingA = ((0, 0), (2, 2))
     crossingB = ((0, 2), (2, 0))
     touchingA = ((0, 0), (1, 1))
     touchingB = ((1, 1), (2, 0))
+
+symbolicLogicSortOrdersThree
+    :: SBV.SReal
+    -> SBV.SReal
+    -> SBV.SReal
+    -> SBV.SBool
+symbolicLogicSortOrdersThree x y z =
+    case logicSort ((.<=.) :: SBV.SReal -> SBV.SReal -> SBV.SBool) [x, y, z] of
+        [a, b, c] ->
+            a .<=. b
+                .&&. b .<=. c
+                .&&. logicAny
+                    [ sameValues (a, b, c) (x, y, z)
+                    , sameValues (a, b, c) (x, z, y)
+                    , sameValues (a, b, c) (y, x, z)
+                    , sameValues (a, b, c) (y, z, x)
+                    , sameValues (a, b, c) (z, x, y)
+                    , sameValues (a, b, c) (z, y, x)
+                    ]
+        _ -> false
+  where
+    sameValues (a, b, c) (x', y', z') =
+        a .==. x' .&&. b .==. y' .&&. c .==. z'
 
 halfRayEndpointParametricCompletenessCounterexample :: SBV.Symbolic SBV.SBool
 halfRayEndpointParametricCompletenessCounterexample = do
