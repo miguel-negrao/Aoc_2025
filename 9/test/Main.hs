@@ -66,12 +66,12 @@ main = defaultMain $ testGroup "AoC5"
     , testCase "parametric segment intersection implies nonzero determinant (Z3)" $ do
         result <- SBV.prove parametricIntersectionImpliesNonzeroDeterminant
         assertBool (show result) (proved result)
-    -- , testCase "proof: generic rectangle pointInPolygon (Z3)" $ do
-    --     result <- SBV.prove symbolicPointInPolygonMatchesRectangleCheck
-    --     assertBool (show result) (proved result)
-    -- , testCase "proof: generic triangle pointInPolygon (Z3)" $ do
-    --     result <- SBV.prove symbolicPointInPolygonMatchesTriangleBarycentricCheck
-    --     assertBool (show result) (proved result)
+    , testCase "proof: generic rectangle pointInPolygon (Z3)" $ do
+        result <- SBV.prove symbolicPointInPolygonMatchesRectangleCheck
+        assertBool (show result) (proved result)
+    , testCase "proof: generic triangle pointInPolygon (Z3)" $ do
+        result <- SBV.sat symbolicPointInPolygonTriangleCounterexample
+        assertBool (show result) (unsatisfiable result)
     -- , testCase "part2 example" $ do
     --     input <- TIO.readFile "test_input"
     --     case parse parser "test_input" input of
@@ -458,38 +458,30 @@ sPointInTriangleByBarycentricCoordinates (x1, y1) (x2, y2) (x3, y3) (x, y) =
     gamma = 1 - alpha - beta
 
 -- Created by ChatGPT
-symbolicPointInPolygonMatchesTriangleBarycentricCheck
-    :: SBV.Forall "triangleX1" SBV.AlgReal
-    -> SBV.Forall "triangleY1" SBV.AlgReal
-    -> SBV.Forall "triangleX2" SBV.AlgReal
-    -> SBV.Forall "triangleY2" SBV.AlgReal
-    -> SBV.Forall "triangleX3" SBV.AlgReal
-    -> SBV.Forall "triangleY3" SBV.AlgReal
-    -> SBV.Forall "pointX" SBV.AlgReal
-    -> SBV.Forall "pointY" SBV.AlgReal
-    -> SBV.SBool
-symbolicPointInPolygonMatchesTriangleBarycentricCheck
-    (SBV.Forall x1)
-    (SBV.Forall y1)
-    (SBV.Forall x2)
-    (SBV.Forall y2)
-    (SBV.Forall x3)
-    (SBV.Forall y3)
-    (SBV.Forall x)
-    (SBV.Forall y) =
-    ( triangleDet SBV../= 0
-        SBV..&& pointY SBV../= y1
-        SBV..&& pointY SBV../= y2
-        SBV..&& pointY SBV../= y3
-        --SBV..&& SBV.sNot (sPointOnAnyEdge triangleEdges point)
-    )
-        SBV..=> (pointInPolygon triangleEdges point SBV..<=> barycentricCheck)
-  where
-    point@(_, pointY) = (x, y)
-    p1 = (x1, y1)
-    p2 = (x2, y2)
-    p3 = (x3, y3)
-    triangleEdges = [(p1, p2), (p2, p3), (p3, p1)]
-    triangleDet = det2x2 (sPointDiff p2 p1, sPointDiff p3 p1)
-    barycentricCheck =
-        sPointInTriangleByBarycentricCoordinates p1 p2 p3 point
+symbolicPointInPolygonTriangleCounterexample :: SBV.Symbolic SBV.SBool
+symbolicPointInPolygonTriangleCounterexample = do
+    x1 <- SBV.sReal "triangleX1"
+    y1 <- SBV.sReal "triangleY1"
+    x2 <- SBV.sReal "triangleX2"
+    y2 <- SBV.sReal "triangleY2"
+    x3 <- SBV.sReal "triangleX3"
+    y3 <- SBV.sReal "triangleY3"
+    x <- SBV.sReal "pointX"
+    y <- SBV.sReal "pointY"
+    let point@(_, pointY) = (x, y)
+        p1 = (x1, y1)
+        p2 = (x2, y2)
+        p3 = (x3, y3)
+        triangleEdges = [(p1, p2), (p2, p3), (p3, p1)]
+        triangleDet = det2x2 (sPointDiff p2 p1, sPointDiff p3 p1)
+        barycentricCheck =
+            sPointInTriangleByBarycentricCoordinates p1 p2 p3 point
+        assumptions =
+            triangleDet SBV../= 0
+                SBV..&& pointY SBV../= y1
+                SBV..&& pointY SBV../= y2
+                SBV..&& pointY SBV../= y3
+    pure $
+        assumptions
+            SBV..&& SBV.sNot
+                (pointInPolygon triangleEdges point SBV..<=> barycentricCheck)

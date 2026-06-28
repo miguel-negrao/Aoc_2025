@@ -688,8 +688,8 @@ pointInPolygon
     => [Edge a]
     -> Point a
     -> b
-pointInPolygon edges point =
-    oddParity (map (lineSegmentIntersectsHalfRayGoingRight point) edges)
+pointInPolygon edges point = pointOnAnyEdge edges point .||. isInside where
+    isInside = oddParity (map (lineSegmentIntersectsHalfRayGoingRight point) edges)
 
 memoPointInPolygon  :: (Ord a, Fractional a, Integral b) => [Edge a] -> Point b -> Bool
 memoPointInPolygon edges p = memoIntegralPoint memoPointInPolygon' p where
