@@ -804,6 +804,9 @@ lineSegmentEdgeIntersection ls@(p1, p2) edge@(p3, p4) = (intersects, intersectio
         .&&. isInRect ls intersection
         .&&. isInRect edge intersection
 
+-- |
+-- Either the line segment is vertical and then we sort by the Y coordinate, or it is not vertical and X values will have different values,
+-- so we sort using the X coordinate.
 sortPointsOnLineSegment 
     :: ( LogicOrd a
        , LogicIte (LogicBoolean a) ([Point a])
@@ -837,7 +840,8 @@ lineSegmentIsInsideOrOn
 lineSegmentIsInsideOrOn (vertices, edges) segment = undefined where
     intersections :: [(LogicBoolean a, Point a)]
     intersections = fmap (lineSegmentIntersectionAtInteriorPoint segment) edges
-    xs = intersections ++ fmap (\p -> (true, p)) vertices
+    endpoints :: [(LogicBoolean a, Point a)]
+    endpoints =  fmap (\p -> (true, p)) vertices
 
 -- |
 -- After tring a couple of times on my own, I didn't manage to find a criteria that worked, so I asked ChatGPT for help:
@@ -908,6 +912,8 @@ part2 vertices = case areas of
         areas = sortOn Down $ fmap (uncurry area) rectanglesInsidePolygon
 
 {-- TODO
+- lineSegmentIsInsideOrOn continue
+
 - Replace vertex containment + no proper crossings with complete-edge containment.
 - Split each tested edge at boundary intersections/overlaps and check each interval.
 - Make the concave-notch regression pass, then restore the containment SBV tests.
