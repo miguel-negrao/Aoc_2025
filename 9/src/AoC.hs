@@ -342,6 +342,9 @@ part1 xs =  case ys of
     where
         ys = sortOn Down $ fmap (uncurry area) ((\[a,b] -> (a,b)) <$> choose 2 xs)
 
+pointScalarMult :: Num a => a -> Point a  -> Point a
+pointScalarMult a (x,y) = (a*x,a*y)
+
 pointSum :: Num a => Point a -> Point a -> Point a
 pointSum (x1,y1) (x2,y2) = (x1+x2,y1+y2)
 
@@ -780,29 +783,37 @@ memoPointInPolygon
 memoPointInPolygon edges p = memoIntegralPoint memoPointInPolygon' p where
     memoPointInPolygon' = pointInPolygon edges . over both fromIntegral
 
-
-
 -- |
--- Intesection with endpoints of edge is allowed but not with endpoints of line segment
-lineSegmentEdgeIntersection
-    :: (Fractional a, LogicOrd a)
+-- doesn't intesect:             (false, [])
+-- intersects in one point:      (true,  [intersection point])
+-- intersects in a line segment: (true,  [line segment start, line segment end])
+-- this never returns the endpoints of ls
+-- TODO check this carefully
+lineSegmentEdgeIntersectionPoints
+    :: forall a b .
+    (Fractional a
+    , LogicOrd a
+    , b ~ LogicBoolean a
+    , LogicIte b ([Point a])
+    , LogicIte b (Point a))
     => Edge a
     -> Edge a
-    -> (LogicBoolean a, Point a)
-lineSegmentEdgeIntersection ls@(p1, p2) edge@(p3, p4) = (intersects, intersection)
+    -> (b, [Point a])
+lineSegmentEdgeIntersectionPoints ls@(p1, p2) edge@(p3, p4) =  (intersectsOnePoint .||.  intersectsColinear, logicIte intersectsOnePoint [intersection] (logicIte intersectsColinear [] []))
   where
     (hasUniqueIntersection, intersection) =
         solve2x2
             (lineIntersectionMatrix ls edge)
             (lineIntersectionConstants ls edge)
-    intersects = 
+    intersectsOnePoint = 
              b_not (pointEq p1 p2)
         .&&. b_not (pointEq p3 p4)
         .&&. hasUniqueIntersection
         .&&. b_not (pointEq intersection p1)
         .&&. b_not (pointEq intersection p2)
         .&&. isInRect ls intersection
-        .&&. isInRect edge intersection
+        .&&. isInRect edge intersection  
+    intersectsColinear = isInRect ls p3 .||. isInRect ls p4 .||. isInRect edge p1 .||. isInRect edge p2
 
 -- |
 -- Either the line segment is vertical and then we sort by the Y coordinate, or it is not vertical and X values will have different values,
@@ -833,15 +844,21 @@ sortPointsOnLineSegment ((x1,_),(x2,_)) xs =
 -- Require every tested point to be inside or on boundary.
 --
 lineSegmentIsInsideOrOn
-    :: forall a. (Fractional a, LogicOrd a)
+    :: forall a. (Fractional a, LogicOrd a
+    , LogicIte (LogicBoolean a) (Point a)
+    , LogicIte (LogicBoolean a) ([Point a]))
     => ([Point a], [Edge a])
     -> Edge a
     -> LogicBoolean a
 lineSegmentIsInsideOrOn (vertices, edges) segment = undefined where
-    intersections :: [(LogicBoolean a, Point a)]
-    intersections = fmap (lineSegmentIntersectionAtInteriorPoint segment) edges
-    endpoints :: [(LogicBoolean a, Point a)]
-    endpoints =  fmap (\p -> (true, p)) vertices
+    intersections :: [(LogicBoolean a, [Point a])]
+    intersections = fmap (lineSegmentEdgeIntersectionPoints segment) edges
+    endpoints :: [(LogicBoolean a, [Point a])]
+    endpoints =  fmap (\p -> (true, [p])) vertices
+    all :: [(LogicBoolean a, LogicBoolean a)]
+    all = intersections ++ endpoints
+    midpoints = zipWith f all (drop 1 $ cycle all)
+    f a b = pointSum a (pointScalarMult 0.5 b)
 
 -- |
 -- After tring a couple of times on my own, I didn't manage to find a criteria that worked, so I asked ChatGPT for help:
