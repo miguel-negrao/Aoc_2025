@@ -51,6 +51,12 @@ main = defaultMain $ testGroup "AoC5"
     , testCase "pointInPolygon odd-even rule uses shared implementation (Z3)" $ do
         result <- SBV.prove symbolicPointInPolygonExamples
         assertBool (show result) (proved result)
+    , testCase "pointOnEdge soundness: parametric definition implies criterion (Z3)" $ do
+        result <- SBV.prove pointOnEdgeParametricSoundness
+        assertBool (show result) (proved result)
+    , testCase "pointOnEdge completeness: criterion has a parametric witness (Z3)" $ do
+        result <- SBV.prove pointOnEdgeParametricCompleteness
+        assertBool (show result) (proved result)
     , testCase "segment intersection matches parametric SBV solution (Z3)" $ do
         result <- SBV.prove segmentIntersectionMatchesParametricSolution
         assertBool (show result) (proved result)
@@ -117,6 +123,61 @@ symbolicPointInPolygonExamples =
         , ((2, 2), (0, 2))
         , ((0, 2), (0, 0))
         ]
+
+pointOnEdgeParametricSoundness
+    :: SBV.Forall "x1" SBV.AlgReal
+    -> SBV.Forall "y1" SBV.AlgReal
+    -> SBV.Forall "x2" SBV.AlgReal
+    -> SBV.Forall "y2" SBV.AlgReal
+    -> SBV.Forall "x" SBV.AlgReal
+    -> SBV.Forall "y" SBV.AlgReal
+    -> SBV.Forall "t" SBV.AlgReal
+    -> SBV.SBool
+pointOnEdgeParametricSoundness
+    (SBV.Forall x1)
+    (SBV.Forall y1)
+    (SBV.Forall x2)
+    (SBV.Forall y2)
+    (SBV.Forall x)
+    (SBV.Forall y)
+    (SBV.Forall t) =
+        parametricPointOnEdge x1 y1 x2 y2 x y t
+            .=>. pointOnEdge ((x1, y1), (x2, y2)) (x, y)
+
+pointOnEdgeParametricCompleteness
+    :: SBV.Forall "x1" SBV.AlgReal
+    -> SBV.Forall "y1" SBV.AlgReal
+    -> SBV.Forall "x2" SBV.AlgReal
+    -> SBV.Forall "y2" SBV.AlgReal
+    -> SBV.Forall "x" SBV.AlgReal
+    -> SBV.Forall "y" SBV.AlgReal
+    -> SBV.Exists "t" SBV.AlgReal
+    -> SBV.SBool
+pointOnEdgeParametricCompleteness
+    (SBV.Forall x1)
+    (SBV.Forall y1)
+    (SBV.Forall x2)
+    (SBV.Forall y2)
+    (SBV.Forall x)
+    (SBV.Forall y)
+    (SBV.Exists t) =
+        pointOnEdge ((x1, y1), (x2, y2)) (x, y)
+            .=>. parametricPointOnEdge x1 y1 x2 y2 x y t
+
+parametricPointOnEdge
+    :: SBV.SReal
+    -> SBV.SReal
+    -> SBV.SReal
+    -> SBV.SReal
+    -> SBV.SReal
+    -> SBV.SReal
+    -> SBV.SReal
+    -> SBV.SBool
+parametricPointOnEdge x1 y1 x2 y2 x y t =
+    0 .<=. t
+        .&&. t .<=. 1
+        .&&. x .==. x1 + t * (x2 - x1)
+        .&&. y .==. y1 + t * (y2 - y1)
 
 solve2x2JustResultSolvesSystem
     :: SBV.SReal

@@ -48,6 +48,10 @@ All 4 tests passed (228.41s)
 Benchmark bench: FINISH
 
 todo: improve speed
+
+New approach:
+algorithm
+polygon is inside or on if all the edges are inside or on boundary.
 --}
 
 module AoC
@@ -73,6 +77,7 @@ module AoC
     , lineSegmentIntersectsHalfRayGoingRight
     , oddParity
     , pointInPolygon
+    , pointOnEdge
     ) where
 
 import Data.List
@@ -595,15 +600,20 @@ p ∈ [p₁,p₂]
 min(x₁,x₂) ≤ x ≤ max(x₁,x₂)
 ∧
 min(y₁,y₂) ≤ y ≤ max(y₁,y₂)
+
+Also proved with SBV
 --}
-pointOnEdge :: (Num a, LogicEq a b, LogicEq (a,a) b, LogicOrd a b) => Edge a -> Point a -> b
+pointOnEdge :: (Num a, LogicOrd a b) => Edge a -> Point a -> b
 pointOnEdge edge@(p1@(x1,y1),p2@(x2,y2)) p@(x,y) = 
-    p .==. p1
-        .||. p .==. p2
+    pointEq p p1
+        .||. pointEq p p2
         .||. (
             ((x - x1)*(y2-y1) .==. (y - y1)*(x2-x1)) .&&.
             (isInRect edge p)
         )
+
+pointOnAnyEdge :: (Num a, LogicOrd a b) => [Edge a] -> Point a -> b
+pointOnAnyEdge edges p = logicAny $ fmap ((flip pointOnEdge) p) edges
 
 -- |
 -- Rational should not have precision problems, but maybe too slow.
