@@ -365,19 +365,43 @@ lineSegmentsIntersectAtInteriorPoint edgeA@(p1, p2) edgeB@(p3, p4) =
             (lineIntersectionMatrix edgeA edgeB)
             (lineIntersectionConstants edgeA edgeB)
 
+-- | Return this edge's contribution to the odd-even crossing count for the
+-- horizontal half-ray starting at the point and going right.
+--
+-- This is not ordinary set-theoretic segment/half-ray intersection.  A strict
+-- interior intersection is counted when it lies to the right of the tested
+-- point.  An intersection at a segment endpoint uses a half-open convention:
+-- it is counted only when the segment's other endpoint is at or below the ray
+-- (that is, at or below @y3@).
+--
+-- The endpoint convention is meaningful when the results for all polygon
+-- edges are combined by 'oddParity'.  At a polygon vertex, the two incident
+-- edges then contribute:
+--
+-- * zero crossings when both other endpoints are above the ray;
+-- * one crossing when one is above and one is below;
+-- * two crossings when both are below.
+--
+-- Thus a genuine crossing changes parity once, while a vertex at which the
+-- polygon merely touches the ray changes it zero or two times.  Whether the
+-- tested point itself lies on the polygon boundary is a separate question.
 lineSegmentIntersectsHalfRayGoingRight
     :: (Fractional a, LogicOrd a b)
     => Point a
     -> Edge a
     -> b
-lineSegmentIntersectsHalfRayGoingRight pointInAnalysis@(x3, _) edge@(p1, p2) =
+lineSegmentIntersectsHalfRayGoingRight pointInAnalysis@(x3, y3) edge@(p1@(_,y1), p2@(_,y2)) =
     b_not (pointEq p1 p2)
         .&&. hasUniqueIntersection
-        .&&. b_not (pointEq intersection p1)
-        .&&. b_not (pointEq intersection p2)
-        .&&. b_not (pointEq intersection pointInAnalysis)
-        .&&. isInRect edge intersection
         .&&. x3 .<. intersectionX
+        .&&. (
+            (b_not (pointEq intersection p1)
+                .&&. b_not (pointEq intersection p2)
+                .&&. b_not (pointEq intersection pointInAnalysis)
+                .&&. isInRect edge intersection
+                ) .||.
+            ((pointEq intersection p1) .&&. (y2 .<=. y3)) .||. 
+            ((pointEq intersection p2) .&&. (y1 .<=. y3)))
   where
     ray = (pointInAnalysis, pointSum pointInAnalysis (1, 0))
     (hasUniqueIntersection, intersection@(intersectionX, _)) =

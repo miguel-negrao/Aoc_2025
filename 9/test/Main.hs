@@ -45,9 +45,12 @@ main = defaultMain $ testGroup "AoC5"
     , testCase "proper segment intersection uses shared implementation (Z3)" $ do
         result <- SBV.prove symbolicProperSegmentIntersectionExamples
         assertBool (show result) (proved result)
-    , testCase "half-ray intersection uses shared implementation (Z3)" $ do
-        result <- SBV.prove symbolicHalfRayIntersectionExamples
-        assertBool (show result) (proved result)
+    , testCase "half-ray endpoint convention parametric completeness (Z3)" $ do
+        result <- SBV.sat halfRayEndpointParametricCompletenessCounterexample
+        assertBool (show result) (unsatisfiable result)
+    , testCase "half-ray endpoint convention parametric soundness (Z3)" $ do
+        result <- SBV.sat halfRayEndpointParametricSoundnessCounterexample
+        assertBool (show result) (unsatisfiable result)
     , testCase "pointInPolygon odd-even rule uses shared implementation (Z3)" $ do
         result <- SBV.prove symbolicPointInPolygonExamples
         assertBool (show result) (proved result)
@@ -85,6 +88,10 @@ proved :: SBV.ThmResult -> Bool
 proved (SBV.ThmResult (SBV.Unsatisfiable _ _)) = True
 proved _ = False
 
+unsatisfiable :: SBV.SatResult -> Bool
+unsatisfiable (SBV.SatResult (SBV.Unsatisfiable _ _)) = True
+unsatisfiable _ = False
+
 symbolicProperSegmentIntersectionExamples :: SBV.SBool
 symbolicProperSegmentIntersectionExamples =
     lineSegmentsIntersectAtInteriorPoint crossingA crossingB
@@ -97,16 +104,73 @@ symbolicProperSegmentIntersectionExamples =
     touchingA = ((0, 0), (1, 1))
     touchingB = ((1, 1), (2, 0))
 
-symbolicHalfRayIntersectionExamples :: SBV.SBool
-symbolicHalfRayIntersectionExamples =
-    lineSegmentIntersectsHalfRayGoingRight point edgeToRight
-        .&&. b_not (lineSegmentIntersectsHalfRayGoingRight point edgeToLeft)
+halfRayEndpointParametricCompletenessCounterexample :: SBV.Symbolic SBV.SBool
+halfRayEndpointParametricCompletenessCounterexample = do
+    pointX <- SBV.sReal "pointX"
+    pointY <- SBV.sReal "pointY"
+    edgeX1 <- SBV.sReal "edgeX1"
+    edgeY1 <- SBV.sReal "edgeY1"
+    edgeX2 <- SBV.sReal "edgeX2"
+    edgeY2 <- SBV.sReal "edgeY2"
+    segmentT <- SBV.sReal "segmentT"
+    rayT <- SBV.sReal "rayT"
+    let point = (pointX, pointY)
+        edge = ((edgeX1, edgeY1), (edgeX2, edgeY2))
+    pure $
+        parametricHalfRayCrossingWithEndpointConvention
+            point edge segmentT rayT
+            .&&. b_not (lineSegmentIntersectsHalfRayGoingRight point edge)
+
+halfRayEndpointParametricSoundnessCounterexample :: SBV.Symbolic SBV.SBool
+halfRayEndpointParametricSoundnessCounterexample = do
+    pointX <- SBV.sReal "pointX"
+    pointY <- SBV.sReal "pointY"
+    edgeX1 <- SBV.sReal "edgeX1"
+    edgeY1 <- SBV.sReal "edgeY1"
+    edgeX2 <- SBV.sReal "edgeX2"
+    edgeY2 <- SBV.sReal "edgeY2"
+    let point = (pointX, pointY)
+        edge = ((edgeX1, edgeY1), (edgeX2, edgeY2))
+        hasParametricCrossing = SBV.quantifiedBool (parametricWitness point edge)
+    pure $
+        lineSegmentIntersectsHalfRayGoingRight point edge
+            .&&. b_not hasParametricCrossing
   where
-    point :: SPoint
-    point = (0, 0)
-    edgeToRight, edgeToLeft :: SEdge
-    edgeToRight = ((1, -1), (1, 1))
-    edgeToLeft = ((-1, -1), (-1, 1))
+    parametricWitness
+        :: SPoint
+        -> SEdge
+        -> SBV.Exists "segmentT" SBV.AlgReal
+        -> SBV.Exists "rayT" SBV.AlgReal
+        -> SBV.SBool
+    parametricWitness point edge (SBV.Exists segmentT) (SBV.Exists rayT) =
+        parametricHalfRayCrossingWithEndpointConvention
+            point edge segmentT rayT
+
+-- This is the parametric intersection definition extended with the same
+-- half-open endpoint convention used for polygon crossing parity.  An interior
+-- witness is accepted directly.  For t = 0 or t = 1, the other endpoint must
+-- be below the horizontal ray.
+parametricHalfRayCrossingWithEndpointConvention
+    :: SPoint
+    -> SEdge
+    -> SBV.SReal
+    -> SBV.SReal
+    -> SBV.SBool
+parametricHalfRayCrossingWithEndpointConvention
+    (pointX, pointY)
+    ((edgeX1, edgeY1), (edgeX2, edgeY2))
+    segmentT
+    rayT =
+        edgeY1 ./=. edgeY2
+            .&&. acceptedSegmentParameter
+            .&&. 0 .<. rayT
+            .&&. edgeX1 + segmentT * (edgeX2 - edgeX1) .==. pointX + rayT
+            .&&. edgeY1 + segmentT * (edgeY2 - edgeY1) .==. pointY
+  where
+    acceptedSegmentParameter =
+        (0 .<. segmentT .&&. segmentT .<. 1)
+            .||. (segmentT .==. 0 .&&. edgeY2 .<. pointY)
+            .||. (segmentT .==. 1 .&&. edgeY1 .<. pointY)
 
 symbolicPointInPolygonExamples :: SBV.SBool
 symbolicPointInPolygonExamples =
