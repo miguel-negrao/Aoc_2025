@@ -805,7 +805,7 @@ lineSegmentEdgeIntersectionPoints
 lineSegmentEdgeIntersectionPoints ls@(p1, p2) edge@(p3, p4) =  
     logicIte segmentsIntersectInOnePoint  
     (logicIte isAnEndPointOfLs dummyPointList [(true, intersection), dummyPoint])
-    (logicIte segmentsColinear (logicIte segmentsColinarButOnlyIntersectInOnePoint dummyPointList (logicIte intersectsColinearAndOverlaps [(true, p5), (true, p6)] dummyPointList)) dummyPointList)
+    (logicIte segmentsColinear (logicIte segmentsColinarButOnlyIntersectInOnePoint dummyPointList (logicIte intersectsColinearAndOverlaps [(b_not (pointEq p5 p1 .||. pointEq p5 p2), p5), (b_not (pointEq p6 p1 .||. pointEq p6 p2), p6)] dummyPointList)) dummyPointList)
   where
     dummyPoint = (false, (0,0))
     dummyPointList = [dummyPoint, dummyPoint]

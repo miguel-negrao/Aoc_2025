@@ -75,9 +75,9 @@ main = defaultMain $ testGroup "AoC5"
     , testCase "parametric segment intersection implies nonzero determinant (Z3)" $ do
         result <- SBV.prove parametricIntersectionImpliesNonzeroDeterminant
         assertBool (show result) (proved result)
-    , testCase "lineSegmentEdgeIntersectionPoints soundness counterexample (Z3)" $ do
-        result <- SBV.sat lineSegmentEdgeIntersectionPointsSoundnessCounterexample
-        assertFailure (show result)
+    , testCase "lineSegmentEdgeIntersectionPoints soundness: returned points have parametric witnesses (Z3)" $ do
+        result <- SBV.prove lineSegmentEdgeIntersectionPointsSoundness
+        assertBool (show result) (proved result)
     , testCase "proof: generic rectangle pointInPolygon (Z3)" $ do
         result <- SBV.prove symbolicPointInPolygonMatchesRectangleCheck
         assertBool (show result) (proved result)
@@ -509,10 +509,6 @@ lineSegmentEdgeIntersectionPointsSoundness
     -> SBV.Forall "y3" SBV.AlgReal
     -> SBV.Forall "x4" SBV.AlgReal
     -> SBV.Forall "y4" SBV.AlgReal
-    -> SBV.Exists "slot1S" SBV.AlgReal
-    -> SBV.Exists "slot1T" SBV.AlgReal
-    -> SBV.Exists "slot2S" SBV.AlgReal
-    -> SBV.Exists "slot2T" SBV.AlgReal
     -> SBV.SBool
 lineSegmentEdgeIntersectionPointsSoundness
     (SBV.Forall x1)
@@ -522,14 +518,9 @@ lineSegmentEdgeIntersectionPointsSoundness
     (SBV.Forall x3)
     (SBV.Forall y3)
     (SBV.Forall x4)
-    (SBV.Forall y4)
-    (SBV.Exists slot1S)
-    (SBV.Exists slot1T)
-    (SBV.Exists slot2S)
-    (SBV.Exists slot2T) =
+    (SBV.Forall y4) =
         nonDegenerateSegments
-            .=>. (slotSound slot1 slot1S slot1T
-                .&&. slotSound slot2 slot2S slot2T)
+            .=>. (slotSound slot1 .&&. slotSound slot2)
   where
     firstSegment = ((x1, y1), (x2, y2))
     secondSegment = ((x3, y3), (x4, y4))
@@ -539,37 +530,10 @@ lineSegmentEdgeIntersectionPointsSoundness
         (x1 ./=. x2 .||. y1 ./=. y2)
             .&&. (x3 ./=. x4 .||. y3 ./=. y4)
 
-    slotSound (present, point) s t =
-        present .=>. parametricReturnedIntersection firstSegment secondSegment point s t
-
-lineSegmentEdgeIntersectionPointsSoundnessCounterexample :: SBV.Symbolic SBV.SBool
-lineSegmentEdgeIntersectionPointsSoundnessCounterexample = do
-    x1 <- SBV.sReal "x1"
-    y1 <- SBV.sReal "y1"
-    x2 <- SBV.sReal "x2"
-    y2 <- SBV.sReal "y2"
-    x3 <- SBV.sReal "x3"
-    y3 <- SBV.sReal "y3"
-    x4 <- SBV.sReal "x4"
-    y4 <- SBV.sReal "y4"
-
-    let firstSegment = ((x1, y1), (x2, y2))
-        secondSegment = ((x3, y3), (x4, y4))
-        [slot1, slot2] = lineSegmentEdgeIntersectionPoints firstSegment secondSegment
-
-        nonDegenerateSegments =
-            (x1 ./=. x2 .||. y1 ./=. y2)
-                .&&. (x3 ./=. x4 .||. y3 ./=. y4)
-
-        slotUnsound (present, point) =
-            present
-                .&&. b_not
-                    (parametricReturnedIntersectionEquivalent
-                        firstSegment secondSegment point)
-
-    pure $
-        nonDegenerateSegments
-            .&&. (slotUnsound slot1 .||. slotUnsound slot2)
+    slotSound (present, point) =
+        present
+            .=>. parametricReturnedIntersectionEquivalent
+                firstSegment secondSegment point
 
 parametricReturnedIntersectionEquivalent
     :: SEdge
