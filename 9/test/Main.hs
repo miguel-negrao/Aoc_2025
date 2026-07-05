@@ -75,6 +75,9 @@ main = defaultMain $ testGroup "AoC5"
     , testCase "parametric segment intersection implies nonzero determinant (Z3)" $ do
         result <- SBV.prove parametricIntersectionImpliesNonzeroDeterminant
         assertBool (show result) (proved result)
+    , testCase "lineSegmentEdgeIntersectionPoints soundness counterexample (Z3)" $ do
+        result <- SBV.sat lineSegmentEdgeIntersectionPointsSoundnessCounterexample
+        assertFailure (show result)
     , testCase "proof: generic rectangle pointInPolygon (Z3)" $ do
         result <- SBV.prove symbolicPointInPolygonMatchesRectangleCheck
         assertBool (show result) (proved result)
@@ -496,6 +499,113 @@ parametricIntersectionImpliesNonzeroDeterminant
     intersectionIsUnique (SBV.Forall otherS) (SBV.Forall otherT) =
         isParametricIntersection otherS otherT
             SBV..=> (otherS SBV..== s SBV..&& otherT SBV..== t)
+
+lineSegmentEdgeIntersectionPointsSoundness
+    :: SBV.Forall "x1" SBV.AlgReal
+    -> SBV.Forall "y1" SBV.AlgReal
+    -> SBV.Forall "x2" SBV.AlgReal
+    -> SBV.Forall "y2" SBV.AlgReal
+    -> SBV.Forall "x3" SBV.AlgReal
+    -> SBV.Forall "y3" SBV.AlgReal
+    -> SBV.Forall "x4" SBV.AlgReal
+    -> SBV.Forall "y4" SBV.AlgReal
+    -> SBV.Exists "slot1S" SBV.AlgReal
+    -> SBV.Exists "slot1T" SBV.AlgReal
+    -> SBV.Exists "slot2S" SBV.AlgReal
+    -> SBV.Exists "slot2T" SBV.AlgReal
+    -> SBV.SBool
+lineSegmentEdgeIntersectionPointsSoundness
+    (SBV.Forall x1)
+    (SBV.Forall y1)
+    (SBV.Forall x2)
+    (SBV.Forall y2)
+    (SBV.Forall x3)
+    (SBV.Forall y3)
+    (SBV.Forall x4)
+    (SBV.Forall y4)
+    (SBV.Exists slot1S)
+    (SBV.Exists slot1T)
+    (SBV.Exists slot2S)
+    (SBV.Exists slot2T) =
+        nonDegenerateSegments
+            .=>. (slotSound slot1 slot1S slot1T
+                .&&. slotSound slot2 slot2S slot2T)
+  where
+    firstSegment = ((x1, y1), (x2, y2))
+    secondSegment = ((x3, y3), (x4, y4))
+    [slot1, slot2] = lineSegmentEdgeIntersectionPoints firstSegment secondSegment
+
+    nonDegenerateSegments =
+        (x1 ./=. x2 .||. y1 ./=. y2)
+            .&&. (x3 ./=. x4 .||. y3 ./=. y4)
+
+    slotSound (present, point) s t =
+        present .=>. parametricReturnedIntersection firstSegment secondSegment point s t
+
+lineSegmentEdgeIntersectionPointsSoundnessCounterexample :: SBV.Symbolic SBV.SBool
+lineSegmentEdgeIntersectionPointsSoundnessCounterexample = do
+    x1 <- SBV.sReal "x1"
+    y1 <- SBV.sReal "y1"
+    x2 <- SBV.sReal "x2"
+    y2 <- SBV.sReal "y2"
+    x3 <- SBV.sReal "x3"
+    y3 <- SBV.sReal "y3"
+    x4 <- SBV.sReal "x4"
+    y4 <- SBV.sReal "y4"
+
+    let firstSegment = ((x1, y1), (x2, y2))
+        secondSegment = ((x3, y3), (x4, y4))
+        [slot1, slot2] = lineSegmentEdgeIntersectionPoints firstSegment secondSegment
+
+        nonDegenerateSegments =
+            (x1 ./=. x2 .||. y1 ./=. y2)
+                .&&. (x3 ./=. x4 .||. y3 ./=. y4)
+
+        slotUnsound (present, point) =
+            present
+                .&&. b_not
+                    (parametricReturnedIntersectionEquivalent
+                        firstSegment secondSegment point)
+
+    pure $
+        nonDegenerateSegments
+            .&&. (slotUnsound slot1 .||. slotUnsound slot2)
+
+parametricReturnedIntersectionEquivalent
+    :: SEdge
+    -> SEdge
+    -> SPoint
+    -> SBV.SBool
+parametricReturnedIntersectionEquivalent
+    firstSegment@(firstStart, firstEnd)
+    secondSegment
+    point =
+        pointOnEdge firstSegment point
+            .&&. b_not (pointEq point firstStart)
+            .&&. b_not (pointEq point firstEnd)
+            .&&. pointOnEdge secondSegment point
+
+parametricReturnedIntersection
+    :: SEdge
+    -> SEdge
+    -> SPoint
+    -> SBV.SReal
+    -> SBV.SReal
+    -> SBV.SBool
+parametricReturnedIntersection
+    ((x1, y1), (x2, y2))
+    ((x3, y3), (x4, y4))
+    (x, y)
+    s
+    t =
+        0 .<. s
+            .&&. s .<. 1
+            .&&. 0 .<=. t
+            .&&. t .<=. 1
+            .&&. x .==. x1 + s * (x2 - x1)
+            .&&. y .==. y1 + s * (y2 - y1)
+            .&&. x .==. x3 + t * (x4 - x3)
+            .&&. y .==. y3 + t * (y4 - y3)
 
 endpointsArePairwiseDistinct :: [(SBV.SReal, SBV.SReal)] -> SBV.SBool
 endpointsArePairwiseDistinct points =

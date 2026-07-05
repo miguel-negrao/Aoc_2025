@@ -85,6 +85,7 @@ module AoC
     , pointInPolygon
     , pointOnEdge
     , pointOnLine
+    , lineSegmentEdgeIntersectionPoints
     , polygonIsInsideOrOn
     , symbolicPolygonIsInsideOrOn
     , symbolicPolygonIsInsideOrOn'
@@ -817,8 +818,8 @@ lineSegmentEdgeIntersectionPoints ls@(p1, p2) edge@(p3, p4) =
             linesIntersectInOnePoint
         .&&. isInRect ls intersection
         .&&. isInRect edge intersection 
-    segmentsColinear = b_not linesIntersectInOnePoint .||. pointOnLine ls p3
-    segmentsColinarButOnlyIntersectInOnePoint = pointEq p1 p3 .||. pointEq p1 p4 .||. pointEq p2 p3 .||. pointEq p3 p4 
+    segmentsColinear = b_not linesIntersectInOnePoint .&&. pointOnLine ls p3
+    segmentsColinarButOnlyIntersectInOnePoint = pointEq p1 p3 .||. pointEq p1 p4 .||. pointEq p2 p3 .||. pointEq p2 p4 
     intersectsColinearAndOverlaps = (isInRect ls p3 .||. isInRect ls p4 .||. isInRect edge p1 .||. isInRect edge p2)
     [_,p5,p6,_] = sortPointsOnLineSegment ls [p1,p2,p3,p4]
 
@@ -853,13 +854,14 @@ sortPointsOnLineSegment ((x1,_),(x2,_)) xs =
 lineSegmentIsInsideOrOn
     :: forall a. (Fractional a, LogicOrd a
     , LogicIte (LogicBoolean a) (Point a)
-    , LogicIte (LogicBoolean a) ([Point a]))
+    , LogicIte (LogicBoolean a) ([Point a])
+    , LogicIte (LogicBoolean a) ([(LogicBoolean a, Point a)]))
     => ([Point a], [Edge a])
     -> Edge a
     -> LogicBoolean a
 lineSegmentIsInsideOrOn (vertices, edges) segment@(a,b) = logicAll $ fmap (pointInPolygon edges) all where
     intersections :: [Point a]
-    intersections = concatMap (lineSegmentEdgeIntersectionPoints segment) edges
+    intersections = fmap snd $ concatMap (lineSegmentEdgeIntersectionPoints segment) edges
     intersectionsAndEndpoints = intersections ++ [a,b]
     sorted = sortPointsOnLineSegment segment intersectionsAndEndpoints
     midpoints = zipWith f sorted (drop 1 sorted) -- last point of sorted will not be used on the second argument of zipWith
@@ -886,7 +888,7 @@ symbolicPolygonIsInsideOrOn
 symbolicPolygonIsInsideOrOn = symbolicPolygonIsInsideOrOn' pointInPolygon
 
 symbolicPolygonIsInsideOrOn'
-    :: (Fractional a, LogicOrd a, b ~ LogicBoolean a, LogicIte b (Point a), LogicIte b ([Point a]))
+    :: (Fractional a, LogicOrd a, b ~ LogicBoolean a, LogicIte b (Point a), LogicIte b ([Point a]), LogicIte b ([(b, Point a)]))
     => ([Edge a] -> Point a -> b)
     -> ([Point a], [Edge a])
     -> ([Point a], [Edge a])
