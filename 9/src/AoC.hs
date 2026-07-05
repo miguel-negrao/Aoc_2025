@@ -798,8 +798,9 @@ lineSegmentEdgeIntersectionPoints
     , LogicIte b (Point a))
     => Edge a
     -> Edge a
-    -> (b, [Point a])
-lineSegmentEdgeIntersectionPoints ls@(p1, p2) edge@(p3, p4) =  (intersectsOnePoint .||.  intersectsColinear, logicIte intersectsOnePoint [intersection] (logicIte intersectsColinear [] []))
+    -> [Point a]
+lineSegmentEdgeIntersectionPoints ls@(p1, p2) edge@(p3, p4) = logicIte intersectsOnePoint [intersection] (logicIte intersectsColinear [] [])  
+    --(intersectsOnePoint .||.  intersectsColinear, logicIte intersectsOnePoint [intersection] (logicIte intersectsColinear [] []))
   where
     (hasUniqueIntersection, intersection) =
         solve2x2
@@ -850,15 +851,14 @@ lineSegmentIsInsideOrOn
     => ([Point a], [Edge a])
     -> Edge a
     -> LogicBoolean a
-lineSegmentIsInsideOrOn (vertices, edges) segment = undefined where
-    intersections :: [(LogicBoolean a, [Point a])]
-    intersections = fmap (lineSegmentEdgeIntersectionPoints segment) edges
-    endpoints :: [(LogicBoolean a, [Point a])]
-    endpoints =  fmap (\p -> (true, [p])) vertices
-    all :: [(LogicBoolean a, LogicBoolean a)]
-    all = intersections ++ endpoints
-    midpoints = zipWith f all (drop 1 $ cycle all)
+lineSegmentIsInsideOrOn (vertices, edges) segment@(a,b) = logicAll $ fmap (pointInPolygon edges) all where
+    intersections :: [Point a]
+    intersections = concatMap (lineSegmentEdgeIntersectionPoints segment) edges
+    intersectionsAndEndpoints = intersections ++ [a,b]
+    sorted = sortPointsOnLineSegment segment intersectionsAndEndpoints
+    midpoints = zipWith f sorted (drop 1 sorted) -- last point of sorted will not be used on the second argument of zipWith
     f a b = pointSum a (pointScalarMult 0.5 b)
+    all = intersectionsAndEndpoints ++ midpoints
 
 -- |
 -- After tring a couple of times on my own, I didn't manage to find a criteria that worked, so I asked ChatGPT for help:
@@ -880,21 +880,15 @@ symbolicPolygonIsInsideOrOn
 symbolicPolygonIsInsideOrOn = symbolicPolygonIsInsideOrOn' pointInPolygon
 
 symbolicPolygonIsInsideOrOn'
-    :: (Fractional edgeCoordinate, LogicOrd edgeCoordinate)
-    => ([Edge edgeCoordinate] -> Point vertexCoordinate -> LogicBoolean edgeCoordinate)
-    -> ([Point vertexCoordinate], [Edge edgeCoordinate])
-    -> ([Point vertexCoordinate], [Edge edgeCoordinate])
-    -> LogicBoolean edgeCoordinate
+    :: (Fractional a, LogicOrd a, b ~ LogicBoolean a, LogicIte b (Point a), LogicIte b ([Point a]))
+    => ([Edge a] -> Point a -> b)
+    -> ([Point a], [Edge a])
+    -> ([Point a], [Edge a])
+    -> b
 symbolicPolygonIsInsideOrOn'
     pointMembership
-    (verticesA@(_:_:_:_), edgesA)
-    (_:_:_:_, edgesB) =
-        everyVertexOfAInsideB
-            .&&. b_not (polygonEdgesProperlyIntersect edgesA edgesB)
-  where
-    everyVertexOfAInsideB = logicAll (map (pointMembership edgesB) verticesA)
-symbolicPolygonIsInsideOrOn' _ _ _ =
-    error "symbolicPolygonIsInsideOrOn': Both polygons must have 3 vertices"
+    (_, edgesA)
+    polygonB = logicAll $ fmap (lineSegmentIsInsideOrOn polygonB) edgesA
 
 --  a +-------------+ d
 --    |             |
