@@ -84,6 +84,7 @@ module AoC
     , oddParity
     , pointInPolygon
     , pointOnEdge
+    , pointOnLine
     , polygonIsInsideOrOn
     , symbolicPolygonIsInsideOrOn
     , symbolicPolygonIsInsideOrOn'
@@ -531,7 +532,7 @@ p = s(t)
 <=> 
     (x - x1) = (x2-x1)t ∧
     (y - y1) = (y2-y1)t
-help from chagpt: cross-multiply as to no divide by ZERO
+help from chagpt: cross-multiply as to not divide by ZERO
 <=> 
     (x - x1)(y2-y1) = (x2-x1)(y2-y1)t ∧
     (y - y1)(x2-x1) = (y2-y1)(x2-x1)t
@@ -694,7 +695,6 @@ Thus:
 
 C ∧ B ⇒ p ∈ [p₁,p₂]
 
-
 Conclusion:
 
 p ∈ [p₁,p₂]
@@ -712,9 +712,13 @@ pointOnEdge edge@(p1@(x1,y1),p2@(x2,y2)) p@(x,y) =
     pointEq p p1
         .||. pointEq p p2
         .||. (
-            ((x - x1)*(y2-y1) .==. (y - y1)*(x2-x1)) .&&.
+            (pointOnLine edge p) .&&.
             (isInRect edge p)
         )
+
+
+pointOnLine :: (Num a, LogicOrd a) => Edge a -> Point a -> LogicBoolean a
+pointOnLine (p1@(x1,y1),p2@(x2,y2)) p@(x,y) = (x - x1)*(y2-y1) .==. (y - y1)*(x2-x1)
 
 pointOnAnyEdge :: (Num a, LogicOrd a) => [Edge a] -> Point a -> LogicBoolean a
 pointOnAnyEdge edges p = logicAny $ fmap ((flip pointOnEdge) p) edges
@@ -784,37 +788,39 @@ memoPointInPolygon edges p = memoIntegralPoint memoPointInPolygon' p where
     memoPointInPolygon' = pointInPolygon edges . over both fromIntegral
 
 -- |
--- doesn't intesect:             (false, [])
--- intersects in one point:      (true,  [intersection point])
--- intersects in a line segment: (true,  [line segment start, line segment end])
--- this never returns the endpoints of ls
--- TODO check this carefully
+-- This assumes the line segments are not degenerate => p1 /= p2 && p3 /= p4.
+-- It also returns empty list if the intersection is any of the endpoints of ls.
 lineSegmentEdgeIntersectionPoints
     :: forall a b .
     (Fractional a
     , LogicOrd a
     , b ~ LogicBoolean a
     , LogicIte b ([Point a])
+    , LogicIte b ([(b, Point a)])
     , LogicIte b (Point a))
     => Edge a
     -> Edge a
-    -> [Point a]
-lineSegmentEdgeIntersectionPoints ls@(p1, p2) edge@(p3, p4) = logicIte intersectsOnePoint [intersection] (logicIte intersectsColinear [] [])  
-    --(intersectsOnePoint .||.  intersectsColinear, logicIte intersectsOnePoint [intersection] (logicIte intersectsColinear [] []))
+    -> [(b, Point a)]
+lineSegmentEdgeIntersectionPoints ls@(p1, p2) edge@(p3, p4) =  
+    logicIte segmentsIntersectInOnePoint  
+    (logicIte isAnEndPointOfLs dummyPointList [(true, intersection), dummyPoint])
+    (logicIte segmentsColinear (logicIte segmentsColinarButOnlyIntersectInOnePoint dummyPointList (logicIte intersectsColinearAndOverlaps [(true, p5), (true, p6)] dummyPointList)) dummyPointList)
   where
-    (hasUniqueIntersection, intersection) =
+    dummyPoint = (false, (0,0))
+    dummyPointList = [dummyPoint, dummyPoint]
+    isAnEndPointOfLs = (pointEq intersection p1) .||. (pointEq intersection p2)
+    (linesIntersectInOnePoint, intersection) =
         solve2x2
             (lineIntersectionMatrix ls edge)
             (lineIntersectionConstants ls edge)
-    intersectsOnePoint = 
-             b_not (pointEq p1 p2)
-        .&&. b_not (pointEq p3 p4)
-        .&&. hasUniqueIntersection
-        .&&. b_not (pointEq intersection p1)
-        .&&. b_not (pointEq intersection p2)
+    segmentsIntersectInOnePoint = 
+            linesIntersectInOnePoint
         .&&. isInRect ls intersection
-        .&&. isInRect edge intersection  
-    intersectsColinear = isInRect ls p3 .||. isInRect ls p4 .||. isInRect edge p1 .||. isInRect edge p2
+        .&&. isInRect edge intersection 
+    segmentsColinear = b_not linesIntersectInOnePoint .||. pointOnLine ls p3
+    segmentsColinarButOnlyIntersectInOnePoint = pointEq p1 p3 .||. pointEq p1 p4 .||. pointEq p2 p3 .||. pointEq p3 p4 
+    intersectsColinearAndOverlaps = (isInRect ls p3 .||. isInRect ls p4 .||. isInRect edge p1 .||. isInRect edge p2)
+    [_,p5,p6,_] = sortPointsOnLineSegment ls [p1,p2,p3,p4]
 
 -- |
 -- Either the line segment is vertical and then we sort by the Y coordinate, or it is not vertical and X values will have different values,
@@ -871,7 +877,7 @@ polygonIsInsideOrOn
     => ([Point b], [Edge a])
     -> ([Point b], [Edge a])
     -> Bool
-polygonIsInsideOrOn = symbolicPolygonIsInsideOrOn' memoPointInPolygon
+polygonIsInsideOrOn = undefined -- symbolicPolygonIsInsideOrOn' memoPointInPolygon
 
 symbolicPolygonIsInsideOrOn
     :: ([Point SBV.SReal], [Edge SBV.SReal])

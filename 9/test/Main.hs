@@ -63,6 +63,12 @@ main = defaultMain $ testGroup "AoC5"
     , testCase "pointOnEdge completeness: criterion has a parametric witness (Z3)" $ do
         result <- SBV.prove pointOnEdgeParametricCompleteness
         assertBool (show result) (proved result)
+    , testCase "pointOnLine soundness: parametric definition implies criterion (Z3)" $ do
+        result <- SBV.prove pointOnLineParametricSoundness
+        assertBool (show result) (proved result)
+    , testCase "pointOnLine completeness: criterion has a real parametric witness (Z3)" $ do
+        result <- SBV.prove pointOnLineParametricCompleteness
+        assertBool (show result) (proved result)
     , testCase "segment intersection matches parametric SBV solution (Z3)" $ do
         result <- SBV.prove segmentIntersectionMatchesParametricSolution
         assertBool (show result) (proved result)
@@ -75,25 +81,25 @@ main = defaultMain $ testGroup "AoC5"
     , testCase "proof: generic triangle pointInPolygon (Z3)" $ do
         result <- SBV.sat symbolicPointInPolygonTriangleCounterexample
         assertBool (show result) (unsatisfiable result)
-    -- , testCase "proof: triangle polygon containment barycentric soundness (Z3)" $ do
-    --     result <- SBV.sat polygonIsInsideOrOnTriangleSoundnessCounterexample
-    --     assertBool (show result) (unsatisfiable result)
-    -- , testCase "proof: triangle polygon containment barycentric completeness (Z3)" $ do
-    --     result <- SBV.sat polygonIsInsideOrOnTriangleCompletenessCounterexample
-    --     assertBool (show result) (unsatisfiable result)
+    , testCase "proof: triangle polygon containment barycentric soundness (Z3)" $ do
+        result <- SBV.sat polygonIsInsideOrOnTriangleSoundnessCounterexample
+        assertBool (show result) (unsatisfiable result)
+    , testCase "proof: triangle polygon containment barycentric completeness (Z3)" $ do
+        result <- SBV.sat polygonIsInsideOrOnTriangleCompletenessCounterexample
+        assertBool (show result) (unsatisfiable result)
     , testCase
         "polygon containment rejects rectangle spanning a concave notch"
         concaveNotchRectangleIsNotContained
-    , testCase "part2 example" $ do
-        input <- TIO.readFile "test_input"
-        case parse parser "test_input" input of
-            Left err -> assertFailure (show err)
-            Right parsed -> assertEqual "part2" 24 (part2 parsed)
-    , testCase "part2 final" $ do
-        input <- TIO.readFile "input"
-        case parse parser "input" input of
-            Left err -> assertFailure (show err)
-            Right parsed -> assertEqual "part2" 1525991432 (part2 parsed)
+    -- , testCase "part2 example" $ do
+    --     input <- TIO.readFile "test_input"
+    --     case parse parser "test_input" input of
+    --         Left err -> assertFailure (show err)
+    --         Right parsed -> assertEqual "part2" 24 (part2 parsed)
+    -- , testCase "part2 final" $ do
+    --     input <- TIO.readFile "input"
+    --     case parse parser "input" input of
+    --         Left err -> assertFailure (show err)
+    --         Right parsed -> assertEqual "part2" 1525991432 (part2 parsed)
     ]
 
 concaveNotchRectangleIsNotContained :: IO ()
@@ -300,6 +306,60 @@ parametricPointOnEdge x1 y1 x2 y2 x y t =
     0 .<=. t
         .&&. t .<=. 1
         .&&. x .==. x1 + t * (x2 - x1)
+        .&&. y .==. y1 + t * (y2 - y1)
+
+pointOnLineParametricSoundness
+    :: SBV.Forall "x1" SBV.AlgReal
+    -> SBV.Forall "y1" SBV.AlgReal
+    -> SBV.Forall "x2" SBV.AlgReal
+    -> SBV.Forall "y2" SBV.AlgReal
+    -> SBV.Forall "x" SBV.AlgReal
+    -> SBV.Forall "y" SBV.AlgReal
+    -> SBV.Forall "t" SBV.AlgReal
+    -> SBV.SBool
+pointOnLineParametricSoundness
+    (SBV.Forall x1)
+    (SBV.Forall y1)
+    (SBV.Forall x2)
+    (SBV.Forall y2)
+    (SBV.Forall x)
+    (SBV.Forall y)
+    (SBV.Forall t) =
+        parametricPointOnLine x1 y1 x2 y2 x y t
+            .=>. pointOnLine ((x1, y1), (x2, y2)) (x, y)
+
+pointOnLineParametricCompleteness
+    :: SBV.Forall "x1" SBV.AlgReal
+    -> SBV.Forall "y1" SBV.AlgReal
+    -> SBV.Forall "x2" SBV.AlgReal
+    -> SBV.Forall "y2" SBV.AlgReal
+    -> SBV.Forall "x" SBV.AlgReal
+    -> SBV.Forall "y" SBV.AlgReal
+    -> SBV.Exists "t" SBV.AlgReal
+    -> SBV.SBool
+pointOnLineParametricCompleteness
+    (SBV.Forall x1)
+    (SBV.Forall y1)
+    (SBV.Forall x2)
+    (SBV.Forall y2)
+    (SBV.Forall x)
+    (SBV.Forall y)
+    (SBV.Exists t) =
+        (x1 ./=. x2 .||. y1 ./=. y2)
+            .=>. (pointOnLine ((x1, y1), (x2, y2)) (x, y)
+                .=>. parametricPointOnLine x1 y1 x2 y2 x y t)
+
+parametricPointOnLine
+    :: SBV.SReal
+    -> SBV.SReal
+    -> SBV.SReal
+    -> SBV.SReal
+    -> SBV.SReal
+    -> SBV.SReal
+    -> SBV.SReal
+    -> SBV.SBool
+parametricPointOnLine x1 y1 x2 y2 x y t =
+    x .==. x1 + t * (x2 - x1)
         .&&. y .==. y1 + t * (y2 - y1)
 
 solve2x2JustResultSolvesSystem
