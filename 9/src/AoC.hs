@@ -1039,9 +1039,7 @@ makeRectangle a@(x1,y1) b@(x2,y2) = edges where
     vertices = [a,d,b,c]
     edges = verticesToEdges vertices
 
-
 -- Memo helpers
-
 
 memoDouble :: Memo Double
 memoDouble = Memo.wrap castWord64ToDouble castDoubleToWord64 Memo.integral
@@ -1084,7 +1082,6 @@ memoPointInPolygon
 memoPointInPolygon edges p = memoIntegralPoint memoPointInPolygon' p where
     memoPointInPolygon' = pointInPolygon edges . over both fromIntegral
 
-
 memoPointInPolygonDouble
     :: [Edge Double]
     -> Point Double
@@ -1093,7 +1090,7 @@ memoPointInPolygonDouble edges p = memoPointDouble memoPointInPolygon' p where
     memoPointInPolygon' :: Point Double -> Bool
     memoPointInPolygon' = pointInPolygon edges
 
--- Part 2 proper
+-- ######### Part 2 #########
 
 part2 :: PolygonVertices -> Int
 part2 vertices = case find findRectangle candidates of
@@ -1115,21 +1112,13 @@ part2 vertices = case find findRectangle candidates of
         candidates = sortOn (Down . snd) nonDegenerateRectangles
         findRectangle ((v,w), _) = all memoEfficientLineSegmentIsInsideOrOn $ makeRectangle v w
         -- memoize on the line segment being tested
-        memoEfficientLineSegmentIsInsideOrOn = memoIntegralEdge (efficientLineSegmentIsInsideOrOn')
+        memoEfficientLineSegmentIsInsideOrOn = memoIntegralEdge (efficientLineSegmentIsInsideOrOn') . canonicalEdge
         efficientLineSegmentIsInsideOrOn' (p1,p2) = 
-            efficientLineSegmentIsInsideOrOn memoPointInPolygonDouble' edges' (over both fromIntegral p1, over both fromIntegral p2)   
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+            efficientLineSegmentIsInsideOrOn memoPointInPolygonDouble' edges' (over both fromIntegral p1, over both fromIntegral p2)
+        -- if x1 <= x2 then order ok
+        -- if x1 = x2 and y1 <= y2 order ok
+        -- otherwise flip order
+        -- this way we don't evaluate the line segment twice because the points appear in different orders
+        canonicalEdge edge@(a, b)
+            | a <= b    = edge
+            | otherwise = (b, a)
