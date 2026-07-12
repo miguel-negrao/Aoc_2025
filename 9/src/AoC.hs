@@ -50,8 +50,17 @@ All
 All 4 tests passed (228.41s)
 Benchmark bench: FINISH
 
-5th attempt 6s (now with a really correct result checked by Z3)
+5th attempt 5.6s (now with a really correct result checked by Z3)
 
+Benchmark bench: RUNNING...
+All
+  part1 without parsing: OK
+    45.6 ms ± 1.9 ms
+  part2 without parsing: OK
+    4.869 s ± 305 ms
+  part1 with parsing:    OK
+    57.5 ms ± 2.2 ms
+  part2 with parsing:    5.639 s ± 712 ms
 
 --}
 
@@ -1043,6 +1052,9 @@ memoPointDouble = Memo.pair memoDouble memoDouble
 memoIntegralPoint :: Integral a => Memo (Point a)
 memoIntegralPoint = Memo.pair Memo.integral Memo.integral
 
+memoIntegralEdge :: Integral a => Memo (Edge a)
+memoIntegralEdge = Memo.pair memoIntegralPoint memoIntegralPoint
+
 memoRational :: Memo Rational
 memoRational = Memo.wrap to from memoIntegralPoint where
     to (a,b) = a % b
@@ -1088,20 +1100,24 @@ part2 vertices = case find findRectangle candidates of
         (Just (_,x)) -> x
         Nothing -> 0
     where
-        -- calculate edges only once. this includes converting to fractional type
         vertices' :: [Point Double]
         vertices' = over (traverse . both) fromIntegral vertices
-        edges = verticesToEdges vertices'
-        memoPointInPolygonDouble' = memoPointInPolygonDouble edges
+        edges = verticesToEdges vertices
+        edges' = verticesToEdges vertices'
+        -- memoize on the point being tested
+        memoPointInPolygonDouble' = memoPointInPolygonDouble edges'
         nonDegenerateRectangles = do
             [v@(x1,y1), w@(x2,y2)] <- choose 2 vertices
             guard $ x1 /= x2 && y1 /= y2
             let area' = area v w
             return ((v,w), area')
+        -- sort on the areas descending so that we evaluate from the biggest to the smallest and we stop when we first find one that is inside (idea by chatgpt).
         candidates = sortOn (Down . snd) nonDegenerateRectangles
-        findRectangle ((v,w), _) = efficientPolygonIsInsideOrOn memoPointInPolygonDouble' rectangle edges where
-            rectangle = makeRectangle v' w'
-            [v'::Point Double,w'] = over (traverse. both) fromIntegral [v,w]
+        findRectangle ((v,w), _) = all memoEfficientLineSegmentIsInsideOrOn $ makeRectangle v w
+        -- memoize on the line segment being tested
+        memoEfficientLineSegmentIsInsideOrOn = memoIntegralEdge (efficientLineSegmentIsInsideOrOn')
+        efficientLineSegmentIsInsideOrOn' (p1,p2) = 
+            efficientLineSegmentIsInsideOrOn memoPointInPolygonDouble' edges' (over both fromIntegral p1, over both fromIntegral p2)   
 
 
 
