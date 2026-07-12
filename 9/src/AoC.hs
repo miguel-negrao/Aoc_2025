@@ -117,6 +117,8 @@ import GHC.Base (leInt, DoubleBox)
 import Data.Ratio (numerator, denominator, (%))
 import qualified Data.MemoCombinators.Class as Memo
 import qualified Data.SBV as SBV
+import Data.Word (Word64)
+import GHC.Float (castDoubleToWord64, castWord64ToDouble)
 
 -- Z3 coverage: the `Z3-tested` comments below name the symbolic properties in
 -- test/Main.hs that exercise each function, directly or through a tested
@@ -978,6 +980,12 @@ part2 vertices = case areas of
 
 -- Legacy helpers currently unused by the solution or its tests.
 
+memoDouble :: Memo Double
+memoDouble = Memo.wrap castWord64ToDouble castDoubleToWord64 Memo.integral
+
+memoPointDouble :: Memo (Point Double)
+memoPointDouble = Memo.pair memoDouble memoDouble
+
 memoIntegralPoint :: Integral a => Memo (Point a)
 memoIntegralPoint = Memo.pair Memo.integral Memo.integral
 
@@ -1023,3 +1031,12 @@ memoPointInPolygon
     -> Bool
 memoPointInPolygon edges p = memoIntegralPoint memoPointInPolygon' p where
     memoPointInPolygon' = pointInPolygon edges . over both fromIntegral
+
+
+memoPointInPolygonDouble
+    :: [Edge Double]
+    -> Point Double
+    -> Bool
+memoPointInPolygonDouble edges p = memoPointDouble memoPointInPolygon' p where
+    memoPointInPolygon' :: Point Double -> Bool
+    memoPointInPolygon' = pointInPolygon edges
