@@ -112,27 +112,16 @@ concaveNotchRectangleIsNotContained =
         (not (polygonIsInsideOrOn rectangle outerPolygon))
   where
     rectangle
-        :: ([(Integer, Integer)], [((Double, Double), (Double, Double))])
-    rectangle = (rectangleVertices, rectangleEdges)
+        :: [((Double, Double), (Double, Double))]
+    rectangle = rectangleEdges
     outerPolygon
-        :: ([(Integer, Integer)], [((Double, Double), (Double, Double))])
-    outerPolygon = (outerVertices, outerEdges)
-    rectangleVertices = [(0, 0), (4, 0), (4, 4), (0, 4)]
+        :: [((Double, Double), (Double, Double))]
+    outerPolygon = outerEdges
     rectangleEdges =
         [ ((0, 0), (4, 0))
         , ((4, 0), (4, 4))
         , ((4, 4), (0, 4))
         , ((0, 4), (0, 0))
-        ]
-    outerVertices =
-        [ (0, 0)
-        , (4, 0)
-        , (4, 4)
-        , (3, 4)
-        , (3, 1)
-        , (1, 1)
-        , (1, 4)
-        , (0, 4)
         ]
     outerEdges =
         [ ((0, 0), (4, 0))
@@ -712,12 +701,9 @@ polygonIsInsideOrOnTriangleCounterexample disagreement = do
         b2 = (bx2, by2)
         b3 = (bx3, by3)
         verticesA = [a1, a2, a3]
-        verticesB = [b1, b2, b3]
         edgesA = [(a1, a2), (a2, a3), (a3, a1)]
         edgesB = [(b1, b2), (b2, b3), (b3, b1)]
-        triangleA = (verticesA, edgesA)
-        triangleB = (verticesB, edgesB)
-        implementationCheck = symbolicPolygonIsInsideOrOn triangleA triangleB
+        implementationCheck = symbolicPolygonIsInsideOrOn edgesA edgesB
         barycentricCheck = SBV.sAnd
             [ sPointInTriangleByBarycentricCoordinates b1 b2 b3 vertex
             | vertex <- verticesA
