@@ -371,11 +371,9 @@ part1 xs =  case ys of
     where
         ys = sortOn Down $ fmap (uncurry area) ((\[a,b] -> (a,b)) <$> choose 2 xs)
 
--- Z3-tested by the polygon containment properties.
 pointScalarMult :: Num a => a -> Point a  -> Point a
 pointScalarMult a (x,y) = (a*x,a*y)
 
--- Z3-tested by the half-ray and polygon properties.
 pointSum :: Num a => Point a -> Point a -> Point a
 pointSum (x1,y1) (x2,y2) = (x1+x2,y1+y2)
 
@@ -390,6 +388,7 @@ det2x2 ((a1,b1), (a2,b2)) = a1*b2 - a2*b1
 -- solve
 -- a1 b1 x x = c1
 -- a2 b2   y   c2 
+--
 -- Z3-tested by solve2x2JustResultSolvesSystem and
 -- segmentIntersectionMatchesParametricSolution.
 solve2x2' :: Fractional a => (Point a, Point a) -> Point a -> a -> Point a
@@ -401,6 +400,7 @@ solve2x2' a@((a1,b1),(a2,b2)) (c1,c2) det = ( (c1*b2-b1*c2) / det, (a1*c2 - c1 *
 -- by Cramer's rule. The returned point is meaningful only when the Boolean is
 -- true. Keeping the condition as a value allows the same function to work with
 -- both Bool and SBV.SBool.
+--
 -- Z3-tested by solve2x2JustResultSolvesSystem and the geometry properties.
 solve2x2 :: (Fractional a, LogicEq a) => (Point a, Point a) -> Point a -> (LogicBoolean a, Point a)
 solve2x2 a c = (det ./=. 0, res) where
@@ -440,7 +440,6 @@ booleanIte :: (BooleanLogic b) => b -> b -> b -> b
 booleanIte cond whenTrue whenFalse =
     (cond .&&. whenTrue) .||. (b_not cond .&&. whenFalse)
 
--- Z3-tested indirectly by the geometry properties through isInRect.
 isInInterval :: LogicOrd a => a -> a -> a -> LogicBoolean a
 isInInterval x1 x2 x3 =
         booleanIte
@@ -448,12 +447,10 @@ isInInterval x1 x2 x3 =
         (x1 .<=. x3 .&&. x3 .<=. x2)
         (x2 .<=. x3 .&&. x3 .<=. x1)
 
--- Z3-tested by the point, segment-intersection, half-ray, and polygon properties.
 isInRect :: LogicOrd a => Edge a -> Point a -> LogicBoolean a
 isInRect ((x1,y1), (x2,y2)) (x3,y3) =
     isInInterval x1 x2 x3 .&&. isInInterval y1 y2 y3
 
--- Z3-tested by the point, segment-intersection, half-ray, and polygon properties.
 pointEq :: LogicEq a => Point a -> Point a -> LogicBoolean a
 pointEq (x1, y1) (x2, y2) = x1 .==. x2 .&&. y1 .==. y2
 
@@ -510,6 +507,7 @@ lineSegmentIntersectionAtInteriorPoint edgeA@(p1, p2) edgeB@(p3, p4) = (intersec
 -- Thus a genuine crossing changes parity once, while a vertex at which the
 -- polygon merely touches the ray changes it zero or two times.  Whether the
 -- tested point itself lies on the polygon boundary is a separate question.
+--
 -- Z3-tested by the half-ray endpoint properties and the pointInPolygon properties.
 lineSegmentIntersectsHalfRayGoingRight
     :: (Fractional a, LogicOrd a)
@@ -535,34 +533,10 @@ lineSegmentIntersectsHalfRayGoingRight pointInAnalysis@(x3, y3) edge@(p1@(_,y1),
             (lineIntersectionMatrix edge ray)
             (lineIntersectionConstants edge ray)
 
-memoIntegralPoint :: Integral a => Memo (Point a)
-memoIntegralPoint = Memo.pair Memo.integral Memo.integral
-
-memoRational :: Memo Rational
-memoRational = Memo.wrap to from memoIntegralPoint where
-    to (a,b) = a % b
-    from r = (numerator r , denominator r)
-
-memoRationalPointPoint :: Memo (Point Rational)
-memoRationalPointPoint = Memo.pair memoRational memoRational
-
-memoEdge :: Memo (Edge Rational)
-memoEdge = Memo.pair memoRationalPointPoint memoRationalPointPoint
-
-memoLineSegmentIntersectsHalfRayGoingRight :: Point Rational -> Edge Rational -> Bool
-memoLineSegmentIntersectsHalfRayGoingRight =
-    Memo.memo2 memoRationalPointPoint memoEdge lineSegmentIntersectsHalfRayGoingRight
-
 verticesToEdges' :: [Point a] -> [Edge a]
 verticesToEdges' xs = zipWith f xs (drop 1 $ cycle xs) where
     n = length xs
     f a b = (a,b)
-
-toRational' :: Integral a => a -> Rational
-toRational' = fromIntegral
-
-intToRational :: Int -> Rational
-intToRational = fromIntegral
 
 intToDouble :: Int -> Double
 intToDouble = fromIntegral
@@ -772,20 +746,6 @@ pointOnAnyEdge :: (Num a, LogicOrd a) => [Edge a] -> Point a -> LogicBoolean a
 pointOnAnyEdge edges p = logicAny $ fmap ((flip pointOnEdge) p) edges
 
 -- |
--- Rational should not have precision problems, but maybe too slow.
-polygonEdgesProperlyIntersect
-    :: (Fractional a, LogicOrd a)
-    => [Edge a]
-    -> [Edge a]
-    -> LogicBoolean a
-polygonEdgesProperlyIntersect edgesA edgesB =
-    logicAny
-        [ hasLineSegmentsIntersectAtInteriorPoint edgeA edgeB
-        | edgeA <- edgesA
-        , edgeB <- edgesB
-        ]
-
--- |
 -- 1. Shoot half ray from point in any direction, for instance along the X axis.
 -- 2. Count how many times it crosses an edge of the polygon P 
 -- 3. if the result is even then it is outside, if it is odd it is inside.
@@ -828,14 +788,6 @@ pointInPolygon
     -> LogicBoolean a
 pointInPolygon edges point = pointOnAnyEdge edges point .||. isInside where
     isInside = oddParity (map (lineSegmentIntersectsHalfRayGoingRight point) edges)
-
-memoPointInPolygon
-    :: (Fractional a, Integral b, LogicOrd a, LogicBoolean a ~ Bool)
-    => [Edge a]
-    -> Point b
-    -> Bool
-memoPointInPolygon edges p = memoIntegralPoint memoPointInPolygon' p where
-    memoPointInPolygon' = pointInPolygon edges . over both fromIntegral
 
 -- |
 -- This assumes the line segments are not degenerate => p1 /= p2 && p3 /= p4.
@@ -1004,3 +956,74 @@ part2 vertices = case areas of
 - Make the concave-notch regression pass, then restore the containment SBV tests.
 - Benchmark and reintroduce caching where it materially helps.
 --}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- Legacy helpers currently unused by the solution or its tests.
+
+memoIntegralPoint :: Integral a => Memo (Point a)
+memoIntegralPoint = Memo.pair Memo.integral Memo.integral
+
+memoRational :: Memo Rational
+memoRational = Memo.wrap to from memoIntegralPoint where
+    to (a,b) = a % b
+    from r = (numerator r , denominator r)
+
+memoRationalPointPoint :: Memo (Point Rational)
+memoRationalPointPoint = Memo.pair memoRational memoRational
+
+memoEdge :: Memo (Edge Rational)
+memoEdge = Memo.pair memoRationalPointPoint memoRationalPointPoint
+
+memoLineSegmentIntersectsHalfRayGoingRight :: Point Rational -> Edge Rational -> Bool
+memoLineSegmentIntersectsHalfRayGoingRight =
+    Memo.memo2 memoRationalPointPoint memoEdge lineSegmentIntersectsHalfRayGoingRight
+
+toRational' :: Integral a => a -> Rational
+toRational' = fromIntegral
+
+intToRational :: Int -> Rational
+intToRational = fromIntegral
+
+-- |
+-- Rational should not have precision problems, but maybe too slow.
+polygonEdgesProperlyIntersect
+    :: (Fractional a, LogicOrd a)
+    => [Edge a]
+    -> [Edge a]
+    -> LogicBoolean a
+polygonEdgesProperlyIntersect edgesA edgesB =
+    logicAny
+        [ hasLineSegmentsIntersectAtInteriorPoint edgeA edgeB
+        | edgeA <- edgesA
+        , edgeB <- edgesB
+        ]
+
+memoPointInPolygon
+    :: (Fractional a, Integral b, LogicOrd a, LogicBoolean a ~ Bool)
+    => [Edge a]
+    -> Point b
+    -> Bool
+memoPointInPolygon edges p = memoIntegralPoint memoPointInPolygon' p where
+    memoPointInPolygon' = pointInPolygon edges . over both fromIntegral
