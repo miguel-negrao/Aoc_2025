@@ -982,33 +982,24 @@ memoPointInPolygonDouble edges p = memoPointDouble memoPointInPolygon' p where
 -- Part 2 proper
 
 part2 :: PolygonVertices -> Int
-part2 vertices = case areas of
-        (x:_) -> x
-        [] -> 0
+part2 vertices = case find findRectangle candidates of
+        (Just (_,x)) -> x
+        Nothing -> 0
     where
         -- calculate edges only once. this includes converting to fractional type
         vertices' :: [Point Double]
         vertices' = over (traverse . both) fromIntegral vertices
         edges = verticesToEdges vertices'
         memoPointInPolygonDouble' = memoPointInPolygonDouble edges
-        rectanglesInsidePolygon = do
+        nonDegenerateRectangles = do
             [v@(x1,y1), w@(x2,y2)] <- choose 2 vertices
-            let 
-                [v'::Point Double,w'] = over (traverse. both) fromIntegral [v,w]
-                rectangle = makeRectangle v' w'
-            guard $ x1 /= x2 && y1 /= y2 && polygonIsInsideOrOn memoPointInPolygonDouble' rectangle edges
-            return (v,w)
-        areas = sortOn Down $ fmap (uncurry area) rectanglesInsidePolygon
-
-{-- TODO
-- lineSegmentIsInsideOrOn continue
-
-- Replace vertex containment + no proper crossings with complete-edge containment.
-- Split each tested edge at boundary intersections/overlaps and check each interval.
-- Make the concave-notch regression pass, then restore the containment SBV tests.
-- Benchmark and reintroduce caching where it materially helps.
---}
-
+            guard $ x1 /= x2 && y1 /= y2
+            let area' = area v w
+            return ((v,w), area')
+        candidates = sortOn (Down . snd) nonDegenerateRectangles
+        findRectangle ((v,w), _) = polygonIsInsideOrOn memoPointInPolygonDouble' rectangle edges where
+            rectangle = makeRectangle v' w'
+            [v'::Point Double,w'] = over (traverse. both) fromIntegral [v,w]
 
 
 
