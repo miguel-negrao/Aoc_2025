@@ -984,7 +984,7 @@ efficientLineSegmentIsInsideOrOn pointInPolygon' edges segment@(a, b) =
         concatMap (efficientLineSegmentEdgeIntersectionPoints segment) edges
     intersectionsAndEndpoints = intersections ++ [a, b]
     sorted =
-        efficientSortPointsOnLineSegmentFiltered
+        Data.List.nub $ efficientSortPointsOnLineSegmentFiltered
             segment
             intersectionsAndEndpoints
     midpoints = zipWith midpoint sorted (drop 1 sorted)
