@@ -535,8 +535,8 @@ lineSegmentIntersectsHalfRayGoingRight pointInAnalysis@(x3, y3) edge@(p1@(_,y1),
             (lineIntersectionMatrix edge ray)
             (lineIntersectionConstants edge ray)
 
-verticesToEdges' :: [Point a] -> [Edge a]
-verticesToEdges' xs = zipWith f xs (drop 1 $ cycle xs) where
+verticesToEdges :: [Point a] -> [Edge a]
+verticesToEdges xs = zipWith f xs (drop 1 $ cycle xs) where
     n = length xs
     f a b = (a,b)
 
@@ -918,67 +918,15 @@ polygonIsInsideOrOn edgesA edgesB = logicAll $ fmap (lineSegmentIsInsideOrOn edg
 --  a +-------------+ d
 --    |             |
 --  c +-------------+ b
-makeRectangle :: Point Int -> Point Int -> ([Point Int], [Edge Double])
-makeRectangle a@(x1,y1) b@(x2,y2) = (vertices, edges) where
+makeRectangle a@(x1,y1) b@(x2,y2) = edges where
     c = (x1,y2)   
     d = (x2,y1)
     vertices = [a,d,b,c]
     edges = verticesToEdges vertices
 
--- |
--- Rational would give guarantees of no rounding error, but is much more expensive.
--- Double gives the right solution in my input    
-verticesToEdges :: [Point Int] -> [Edge Double]
-verticesToEdges = verticesToEdges' . over (traversed.each) intToDouble
 
-part2 :: PolygonVertices -> Int
-part2 vertices = case areas of
-        (x:_) -> x
-        [] -> 0
-    where
-        -- calculate edges only once. this includes converting to fractional type
-        edges = verticesToEdges vertices
-        polygon = (vertices, edges)
-        rectanglesInsidePolygon = do
-            [v@(x1,y1), w@(x2,y2)] <- choose 2 vertices
-            let (_,rectangle) = makeRectangle v w
-            guard $ x1 /= x2 && y1 /= y2 && polygonIsInsideOrOn rectangle edges
-            return (v,w)
-        areas = sortOn Down $ fmap (uncurry area) rectanglesInsidePolygon
+-- Memo helpers
 
-{-- TODO
-- lineSegmentIsInsideOrOn continue
-
-- Replace vertex containment + no proper crossings with complete-edge containment.
-- Split each tested edge at boundary intersections/overlaps and check each interval.
-- Make the concave-notch regression pass, then restore the containment SBV tests.
-- Benchmark and reintroduce caching where it materially helps.
---}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
--- Legacy helpers currently unused by the solution or its tests.
 
 memoDouble :: Memo Double
 memoDouble = Memo.wrap castWord64ToDouble castDoubleToWord64 Memo.integral
@@ -1010,20 +958,6 @@ toRational' = fromIntegral
 intToRational :: Int -> Rational
 intToRational = fromIntegral
 
--- |
--- Rational should not have precision problems, but maybe too slow.
-polygonEdgesProperlyIntersect
-    :: (Fractional a, LogicOrd a)
-    => [Edge a]
-    -> [Edge a]
-    -> LogicBoolean a
-polygonEdgesProperlyIntersect edgesA edgesB =
-    logicAny
-        [ hasLineSegmentsIntersectAtInteriorPoint edgeA edgeB
-        | edgeA <- edgesA
-        , edgeB <- edgesB
-        ]
-
 memoPointInPolygon
     :: (Fractional a, Integral b, LogicOrd a, LogicBoolean a ~ Bool)
     => [Edge a]
@@ -1040,3 +974,51 @@ memoPointInPolygonDouble
 memoPointInPolygonDouble edges p = memoPointDouble memoPointInPolygon' p where
     memoPointInPolygon' :: Point Double -> Bool
     memoPointInPolygon' = pointInPolygon edges
+
+
+-- Part 2 proper
+
+part2 :: PolygonVertices -> Int
+part2 vertices = case areas of
+        (x:_) -> x
+        [] -> 0
+    where
+        -- calculate edges only once. this includes converting to fractional type
+        vertices' :: [Point Double]
+        vertices' = over (traverse . both) fromIntegral vertices
+        edges = verticesToEdges vertices'
+        rectanglesInsidePolygon = do
+            [v@(x1,y1), w@(x2,y2)] <- choose 2 vertices
+            let 
+
+                [v'::Point Double,w'] = over (traverse. both) fromIntegral [v,w]
+                rectangle = makeRectangle v' w'
+            guard $ x1 /= x2 && y1 /= y2 && polygonIsInsideOrOn rectangle edges
+            return (v,w)
+        areas = sortOn Down $ fmap (uncurry area) rectanglesInsidePolygon
+
+{-- TODO
+- lineSegmentIsInsideOrOn continue
+
+- Replace vertex containment + no proper crossings with complete-edge containment.
+- Split each tested edge at boundary intersections/overlaps and check each interval.
+- Make the concave-notch regression pass, then restore the containment SBV tests.
+- Benchmark and reintroduce caching where it materially helps.
+--}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
