@@ -792,8 +792,6 @@ pointInPolygon edges point = pointOnAnyEdge edges point .||. isInside where
 -- |
 -- This assumes the line segments are not degenerate => p1 /= p2 && p3 /= p4.
 -- It also returns empty list if the intersection is any of the endpoints of ls.
--- Z3-tested by lineSegmentEdgeIntersectionPointsSoundness and the polygon
--- containment properties.
 lineSegmentEdgeIntersectionPoints
     :: forall a b .
     (Fractional a
