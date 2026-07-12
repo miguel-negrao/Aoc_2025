@@ -882,10 +882,11 @@ lineSegmentIsInsideOrOn
     , LogicIte b ([(LogicBoolean a, Point a)])
     , LogicIte b (b, (a, a)))
     =>
-    [Edge a]
+    (Point a -> b)
+    -> [Edge a]
     -> Edge a
     -> b
-lineSegmentIsInsideOrOn edges segment@(a,b) = logicAll $ fmap g all where
+lineSegmentIsInsideOrOn pointInPolygon' edges segment@(a,b) = logicAll $ fmap g all where
     intersections :: [(b,Point a)]
     intersections = concatMap (lineSegmentEdgeIntersectionPoints segment) edges
     intersectionsAndEndpoints :: [(b,Point a)]
@@ -895,7 +896,7 @@ lineSegmentIsInsideOrOn edges segment@(a,b) = logicAll $ fmap g all where
     -- this works because the not present points are all at then end of the sorted list
     f (b1,p1) (b2,p2) = (b1 .&&. b2, pointScalarMult 0.5 (pointSum p1 p2))
     all = intersectionsAndEndpoints ++ midpoints
-    g (boolean, value) = boolean .=>. pointInPolygon edges value
+    g (boolean, value) = boolean .=>. pointInPolygon' value
 
 -- |
 -- If i keep this version I can't use memoization.
@@ -910,10 +911,12 @@ polygonIsInsideOrOn
         , LogicIte b (b, (a, a))
         , LogicIte b [(a, a)]
         , LogicIte b [(b, (a, a))])
-    => [Edge a]
+    => 
+    (Point a -> b)
+    -> [Edge a]
     -> [Edge a]
     -> b
-polygonIsInsideOrOn edgesA edgesB = logicAll $ fmap (lineSegmentIsInsideOrOn edgesB) edgesA
+polygonIsInsideOrOn pointInPolygon' edgesA edgesB = logicAll $ fmap (lineSegmentIsInsideOrOn pointInPolygon' edgesB) edgesA
 
 --  a +-------------+ d
 --    |             |
@@ -993,7 +996,7 @@ part2 vertices = case areas of
             let 
                 [v'::Point Double,w'] = over (traverse. both) fromIntegral [v,w]
                 rectangle = makeRectangle v' w'
-            guard $ x1 /= x2 && y1 /= y2 && polygonIsInsideOrOn rectangle edges
+            guard $ x1 /= x2 && y1 /= y2 && polygonIsInsideOrOn memoPointInPolygonDouble' rectangle edges
             return (v,w)
         areas = sortOn Down $ fmap (uncurry area) rectanglesInsidePolygon
 
