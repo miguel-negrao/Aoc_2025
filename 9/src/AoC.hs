@@ -1119,6 +1119,7 @@ part2 vertices = case find findRectangle candidates of
         -- if x1 = x2 and y1 <= y2 order ok
         -- otherwise flip order
         -- this way we don't evaluate the line segment twice because the points appear in different orders
+        -- doesn't seem to have much impact in runtime
         canonicalEdge edge@(a, b)
             | a <= b    = edge
             | otherwise = (b, a)
