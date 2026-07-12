@@ -938,8 +938,7 @@ part2 vertices = case areas of
         edges = verticesToEdges vertices
         polygon = (vertices, edges)
         rectanglesInsidePolygon = do
-            v@(x1,y1) <- vertices
-            w@(x2,y2) <- vertices
+            [v@(x1,y1), w@(x2,y2)] <- choose 2 vertices
             let (_,rectangle) = makeRectangle v w
             guard $ x1 /= x2 && y1 /= y2 && polygonIsInsideOrOn rectangle edges
             return (v,w)
