@@ -86,7 +86,11 @@ module AoC
     , pointOnEdge
     , pointOnLine
     , lineSegmentEdgeIntersectionPoints
+    , efficientLineSegmentEdgeIntersectionPoints
+    , efficientSortPointsOnLineSegmentFiltered
+    , efficientLineSegmentIsInsideOrOn
     , polygonIsInsideOrOn
+    , efficientPolygonIsInsideOrOn
     ) where
 
 import Data.List
@@ -825,6 +829,54 @@ lineSegmentEdgeIntersectionPoints ls@(p1, p2) edge@(p3, p4) =
     intersectsColinearAndOverlaps = (isInRect ls p3 .||. isInRect ls p4 .||. isInRect edge p1 .||. isInRect edge p2)
     [_,p5,p6,_] = sortPointsOnLineSegment ls [p1,p2,p3,p4]
 
+-- | Concrete counterpart of 'lineSegmentEdgeIntersectionPoints'.
+--
+-- The symbolic implementation must always return two slots, marking absent
+-- points as inactive.  A concrete calculation can instead omit absent points,
+-- avoiding the large fixed-size lists that the containment algorithm would
+-- otherwise sort.
+efficientLineSegmentEdgeIntersectionPoints
+    :: (Fractional a, Ord a)
+    => Edge a
+    -> Edge a
+    -> [Point a]
+efficientLineSegmentEdgeIntersectionPoints ls@(p1, p2) edge@(p3, p4)
+    | segmentsIntersectInOnePoint =
+        [intersection | intersection /= p1 && intersection /= p2]
+    | segmentsCollinear && intersectsCollinearAndOverlaps =
+        filter (\point -> point /= p1 && point /= p2) [p5, p6]
+    | otherwise = []
+  where
+    matrix = lineIntersectionMatrix ls edge
+    determinant = det2x2 matrix
+    linesIntersectInOnePoint = determinant /= 0
+    intersection =
+        solve2x2'
+            matrix
+            (lineIntersectionConstants ls edge)
+            determinant
+    segmentsIntersectInOnePoint =
+        linesIntersectInOnePoint
+            && pointIsInRect ls intersection
+            && pointIsInRect edge intersection
+    segmentsCollinear =
+        not linesIntersectInOnePoint && pointIsOnLine ls p3
+    intersectsCollinearAndOverlaps =
+        pointIsInRect ls p3
+            || pointIsInRect ls p4
+            || pointIsInRect edge p1
+            || pointIsInRect edge p2
+    [_, p5, p6, _] = efficientSortPointsOnLineSegment ls [p1, p2, p3, p4]
+
+    pointIsInRect ((x1, y1), (x2, y2)) (x, y) =
+        min x1 x2 <= x
+            && x <= max x1 x2
+            && min y1 y2 <= y
+            && y <= max y1 y2
+
+    pointIsOnLine ((x1, y1), (x2, y2)) (x, y) =
+        (x - x1) * (y2 - y1) == (y - y1) * (x2 - x1)
+
 -- |
 -- Either the line segment is vertical and then we sort by the Y coordinate, or it is not vertical and X values will have different values,
 -- so we sort using the X coordinate.
@@ -840,6 +892,16 @@ sortPointsOnLineSegment ((x1,_),(x2,_)) xs =
     logicIte (x1 .==. x2) sortY sortX where
         sortX = logicSortOn fst xs
         sortY = logicSortOn snd xs
+
+-- | Concrete sorting for a variable-length list of actual points.
+efficientSortPointsOnLineSegment
+    :: Ord a
+    => Edge a
+    -> [Point a]
+    -> [Point a]
+efficientSortPointsOnLineSegment ((x1, _), (x2, _))
+    | x1 == x2 = sortOn snd
+    | otherwise = sortOn fst
 
 -- |
 -- Either the line segment is vertical and then we sort by the Y coordinate, or it is not vertical and X values will have different values,
@@ -858,6 +920,15 @@ sortPointsOnLineSegmentFiltered ((x1,_),(x2,_)) xs =
     logicIte (x1 .==. x2) sortY sortX where
         sortX = logicSortOnFiltered fst xs
         sortY = logicSortOnFiltered snd xs
+
+-- | Concrete counterpart of 'sortPointsOnLineSegmentFiltered'.  Inactive
+-- slots have already been omitted, so an ordinary O(n log n) sort is enough.
+efficientSortPointsOnLineSegmentFiltered
+    :: Ord a
+    => Edge a
+    -> [Point a]
+    -> [Point a]
+efficientSortPointsOnLineSegmentFiltered = efficientSortPointsOnLineSegment
 
 -- |
 -- Algorithm:
@@ -898,6 +969,28 @@ lineSegmentIsInsideOrOn pointInPolygon' edges segment@(a,b) = logicAll $ fmap g 
     all = intersectionsAndEndpoints ++ midpoints
     g (boolean, value) = boolean .=>. pointInPolygon' value
 
+-- | Concrete counterpart of 'lineSegmentIsInsideOrOn'.  Only actual
+-- intersection points are retained and sorted.
+efficientLineSegmentIsInsideOrOn
+    :: (Fractional a, Ord a)
+    => (Point a -> Bool)
+    -> [Edge a]
+    -> Edge a
+    -> Bool
+efficientLineSegmentIsInsideOrOn pointInPolygon' edges segment@(a, b) =
+    all pointInPolygon' pointsToCheck
+  where
+    intersections =
+        concatMap (efficientLineSegmentEdgeIntersectionPoints segment) edges
+    intersectionsAndEndpoints = intersections ++ [a, b]
+    sorted =
+        efficientSortPointsOnLineSegmentFiltered
+            segment
+            intersectionsAndEndpoints
+    midpoints = zipWith midpoint sorted (drop 1 sorted)
+    midpoint p1 p2 = pointScalarMult 0.5 (pointSum p1 p2)
+    pointsToCheck = intersectionsAndEndpoints ++ midpoints
+
 -- |
 -- If i keep this version I can't use memoization.
 -- Z3-tested by polygonIsInsideOrOnTriangleSoundnessCounterexample and
@@ -917,6 +1010,16 @@ polygonIsInsideOrOn
     -> [Edge a]
     -> b
 polygonIsInsideOrOn pointInPolygon' edgesA edgesB = logicAll $ fmap (lineSegmentIsInsideOrOn pointInPolygon' edgesB) edgesA
+
+-- | Concrete counterpart of 'polygonIsInsideOrOn'.
+efficientPolygonIsInsideOrOn
+    :: (Fractional a, Ord a)
+    => (Point a -> Bool)
+    -> [Edge a]
+    -> [Edge a]
+    -> Bool
+efficientPolygonIsInsideOrOn pointInPolygon' edgesA edgesB =
+    all (efficientLineSegmentIsInsideOrOn pointInPolygon' edgesB) edgesA
 
 --  a +-------------+ d
 --    |             |
@@ -997,10 +1100,9 @@ part2 vertices = case find findRectangle candidates of
             let area' = area v w
             return ((v,w), area')
         candidates = sortOn (Down . snd) nonDegenerateRectangles
-        findRectangle ((v,w), _) = polygonIsInsideOrOn memoPointInPolygonDouble' rectangle edges where
+        findRectangle ((v,w), _) = efficientPolygonIsInsideOrOn memoPointInPolygonDouble' rectangle edges where
             rectangle = makeRectangle v' w'
             [v'::Point Double,w'] = over (traverse. both) fromIntegral [v,w]
-
 
 
 

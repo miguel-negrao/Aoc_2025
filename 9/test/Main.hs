@@ -105,6 +105,14 @@ main = defaultMain $ testGroup "AoC5"
     , testCase "lineSegmentEdgeIntersectionPoints non-vertical collinear outputs are required (Z3)" $ do
         result <- SBV.sat lineSegmentEdgeIntersectionPointsNonVerticalCollinearRelevanceCounterexample
         assertBool (show result) (unsatisfiable result)
+    , testGroup "efficient concrete segment intersections"
+        [ testCase name $
+            assertEqual
+                "efficient result should contain exactly the active points"
+                (activeConcreteIntersectionPoints first second)
+                (efficientLineSegmentEdgeIntersectionPoints first second)
+        | (name, first, second) <- efficientIntersectionCases
+        ]
     , testCase "proof: generic rectangle pointInPolygon (Z3)" $ do
         result <- SBV.prove symbolicPointInPolygonMatchesRectangleCheck
         assertBool (show result) (proved result)
@@ -183,11 +191,11 @@ main = defaultMain $ testGroup "AoC5"
         case parse parser "test_input" input of
             Left err -> assertFailure (show err)
             Right parsed -> assertEqual "part2" 24 (part2 parsed)
-    -- , testCase "part2 final" $ do
-    --     input <- TIO.readFile "input"
-    --     case parse parser "input" input of
-    --         Left err -> assertFailure (show err)
-    --         Right parsed -> assertEqual "part2" 1525991432 (part2 parsed)
+    , testCase "part2 final" $ do
+        input <- TIO.readFile "input"
+        case parse parser "input" input of
+            Left err -> assertFailure (show err)
+            Right parsed -> assertEqual "part2" 1525991432 (part2 parsed)
     ]
 
 type RPoint = (Rational, Rational)
@@ -200,12 +208,53 @@ rationalPolygonEdges vertices =
     zip vertices (drop 1 vertices ++ take 1 vertices)
 
 assertContained :: String -> [REdge] -> [REdge] -> IO ()
-assertContained message inner outer =
-    assertBool message (polygonIsInsideOrOn (pointInPolygon outer) inner outer)
+assertContained message inner outer = do
+    assertBool
+        (message ++ " (symbolic-compatible implementation)")
+        (polygonIsInsideOrOn (pointInPolygon outer) inner outer)
+    assertBool
+        (message ++ " (efficient implementation)")
+        (efficientPolygonIsInsideOrOn (pointInPolygon outer) inner outer)
 
 assertNotContained :: String -> [REdge] -> [REdge] -> IO ()
-assertNotContained message inner outer =
-    assertBool message (not (polygonIsInsideOrOn (pointInPolygon outer) inner outer))
+assertNotContained message inner outer = do
+    assertBool
+        (message ++ " (symbolic-compatible implementation)")
+        (not (polygonIsInsideOrOn (pointInPolygon outer) inner outer))
+    assertBool
+        (message ++ " (efficient implementation)")
+        (not (efficientPolygonIsInsideOrOn (pointInPolygon outer) inner outer))
+
+activeConcreteIntersectionPoints :: REdge -> REdge -> [RPoint]
+activeConcreteIntersectionPoints first second =
+    [ point
+    | (active, point) <- lineSegmentEdgeIntersectionPoints first second
+    , active
+    ]
+
+efficientIntersectionCases :: [(String, REdge, REdge)]
+efficientIntersectionCases =
+    [ ( "proper crossing"
+      , ((0, 0), (4, 0))
+      , ((2, -1), (2, 1))
+      )
+    , ( "intersection at tested-segment endpoint"
+      , ((0, 0), (4, 0))
+      , ((4, -1), (4, 1))
+      )
+    , ( "disjoint segments"
+      , ((0, 0), (4, 0))
+      , ((5, -1), (5, 1))
+      )
+    , ( "partial collinear overlap"
+      , ((0, 0), (4, 0))
+      , ((2, 0), (6, 0))
+      )
+    , ( "contained collinear edge"
+      , ((0, 0), (4, 0))
+      , ((1, 0), (3, 0))
+      )
+    ]
 
 outerSquareVertices :: [RPoint]
 outerSquareVertices =
@@ -321,9 +370,10 @@ disjointSquare = rationalPolygonEdges
 
 boundarySharingArmIsContained :: IO ()
 boundarySharingArmIsContained =
-    assertBool
+    assertContained
         "the left arm lies inside and shares two boundary sections"
-        (polygonIsInsideOrOn (pointInPolygon concaveUShape) leftArm concaveUShape)
+        leftArm
+        concaveUShape
   where
     leftArm = rationalPolygonEdges
         [ (0, 2)
@@ -334,9 +384,10 @@ boundarySharingArmIsContained =
 
 triangleCrossingConcaveNotchIsNotContained :: IO ()
 triangleCrossingConcaveNotchIsNotContained =
-    assertBool
+    assertNotContained
         "all triangle vertices are inside, but both sloping edges enter the notch"
-        (not (polygonIsInsideOrOn (pointInPolygon concaveUShape) triangle concaveUShape))
+        triangle
+        concaveUShape
   where
     triangle = rationalPolygonEdges
         [ (1, 5)
@@ -345,10 +396,13 @@ triangleCrossingConcaveNotchIsNotContained =
         ]
 
 concaveNotchRectangleIsNotContained :: IO ()
-concaveNotchRectangleIsNotContained =
+concaveNotchRectangleIsNotContained = do
     assertBool
-        "the rectangle includes the empty notch and is not contained"
+        "the rectangle includes the empty notch and is not contained (symbolic-compatible implementation)"
         (not (polygonIsInsideOrOn (pointInPolygon outerPolygon) rectangle outerPolygon))
+    assertBool
+        "the rectangle includes the empty notch and is not contained (efficient implementation)"
+        (not (efficientPolygonIsInsideOrOn (pointInPolygon outerPolygon) rectangle outerPolygon))
   where
     rectangle
         :: [((Double, Double), (Double, Double))]
