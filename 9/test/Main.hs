@@ -75,9 +75,24 @@ main = defaultMain $ testGroup "AoC5"
     , testCase "parametric segment intersection implies nonzero determinant (Z3)" $ do
         result <- SBV.prove parametricIntersectionImpliesNonzeroDeterminant
         assertBool (show result) (proved result)
-    , testCase "lineSegmentEdgeIntersectionPoints soundness: returned points have parametric witnesses (Z3)" $ do
-        result <- SBV.prove lineSegmentEdgeIntersectionPointsSoundness
-        assertBool (show result) (proved result)
+    , testCase "lineSegmentEdgeIntersectionPoints non-collinear soundness (Z3)" $ do
+        result <- SBV.sat lineSegmentEdgeIntersectionPointsNonCollinearCounterexample
+        assertBool (show result) (unsatisfiable result)
+    , testCase "lineSegmentEdgeIntersectionPoints vertical collinear soundness (Z3)" $ do
+        result <- SBV.sat lineSegmentEdgeIntersectionPointsVerticalCollinearCounterexample
+        assertBool (show result) (unsatisfiable result)
+    , testCase "lineSegmentEdgeIntersectionPoints non-vertical collinear soundness (Z3)" $ do
+        result <- SBV.sat lineSegmentEdgeIntersectionPointsNonVerticalCollinearCounterexample
+        assertBool (show result) (unsatisfiable result)
+    , testCase "lineSegmentEdgeIntersectionPoints non-collinear completeness (Z3)" $ do
+        result <- SBV.sat lineSegmentEdgeIntersectionPointsNonCollinearCompletenessCounterexample
+        assertBool (show result) (unsatisfiable result)
+    , testCase "lineSegmentEdgeIntersectionPoints vertical collinear completeness (Z3)" $ do
+        result <- SBV.sat lineSegmentEdgeIntersectionPointsVerticalCollinearCompletenessCounterexample
+        assertBool (show result) (unsatisfiable result)
+    , testCase "lineSegmentEdgeIntersectionPoints non-vertical collinear completeness (Z3)" $ do
+        result <- SBV.sat lineSegmentEdgeIntersectionPointsNonVerticalCollinearCompletenessCounterexample
+        assertBool (show result) (unsatisfiable result)
     , testCase "proof: generic rectangle pointInPolygon (Z3)" $ do
         result <- SBV.prove symbolicPointInPolygonMatchesRectangleCheck
         assertBool (show result) (proved result)
@@ -489,40 +504,126 @@ parametricIntersectionImpliesNonzeroDeterminant
         isParametricIntersection otherS otherT
             SBV..=> (otherS SBV..== s SBV..&& otherT SBV..== t)
 
-lineSegmentEdgeIntersectionPointsSoundness
-    :: SBV.Forall "x1" SBV.AlgReal
-    -> SBV.Forall "y1" SBV.AlgReal
-    -> SBV.Forall "x2" SBV.AlgReal
-    -> SBV.Forall "y2" SBV.AlgReal
-    -> SBV.Forall "x3" SBV.AlgReal
-    -> SBV.Forall "y3" SBV.AlgReal
-    -> SBV.Forall "x4" SBV.AlgReal
-    -> SBV.Forall "y4" SBV.AlgReal
+lineSegmentEdgeIntersectionPointsNonCollinearCounterexample
+    :: SBV.Symbolic SBV.SBool
+lineSegmentEdgeIntersectionPointsNonCollinearCounterexample =
+    lineSegmentEdgeIntersectionPointsSoundnessCounterexample $ \first second ->
+        det2x2 (lineIntersectionMatrix first second) ./=. 0
+
+lineSegmentEdgeIntersectionPointsVerticalCollinearCounterexample
+    :: SBV.Symbolic SBV.SBool
+lineSegmentEdgeIntersectionPointsVerticalCollinearCounterexample =
+    lineSegmentEdgeIntersectionPointsCollinearCounterexample true
+
+lineSegmentEdgeIntersectionPointsNonVerticalCollinearCounterexample
+    :: SBV.Symbolic SBV.SBool
+lineSegmentEdgeIntersectionPointsNonVerticalCollinearCounterexample =
+    lineSegmentEdgeIntersectionPointsCollinearCounterexample false
+
+lineSegmentEdgeIntersectionPointsCollinearCounterexample
+    :: SBV.SBool
+    -> SBV.Symbolic SBV.SBool
+lineSegmentEdgeIntersectionPointsCollinearCounterexample vertical =
+    lineSegmentEdgeIntersectionPointsSoundnessCounterexample $ \first@((x1, _), (x2, _)) second@(p3, _) ->
+        det2x2 (lineIntersectionMatrix first second) .==. 0
+            .&&. pointOnLine first p3
+            .&&. ((x1 .==. x2) .<=>. vertical)
+
+lineSegmentEdgeIntersectionPointsNonCollinearCompletenessCounterexample
+    :: SBV.Symbolic SBV.SBool
+lineSegmentEdgeIntersectionPointsNonCollinearCompletenessCounterexample =
+    lineSegmentEdgeIntersectionPointsCounterexample $ \first@(firstStart, firstEnd) second slots ->
+        let (hasUniqueIntersection, point) =
+                solve2x2
+                    (lineIntersectionMatrix first second)
+                    (lineIntersectionConstants first second)
+        in hasUniqueIntersection
+            .&&. isInRect first point
+            .&&. isInRect second point
+            .&&. b_not (pointEq point firstStart)
+            .&&. b_not (pointEq point firstEnd)
+            .&&. b_not (returnedSlotsContain slots point)
+
+lineSegmentEdgeIntersectionPointsVerticalCollinearCompletenessCounterexample
+    :: SBV.Symbolic SBV.SBool
+lineSegmentEdgeIntersectionPointsVerticalCollinearCompletenessCounterexample =
+    lineSegmentEdgeIntersectionPointsCollinearCompletenessCounterexample true
+
+lineSegmentEdgeIntersectionPointsNonVerticalCollinearCompletenessCounterexample
+    :: SBV.Symbolic SBV.SBool
+lineSegmentEdgeIntersectionPointsNonVerticalCollinearCompletenessCounterexample =
+    lineSegmentEdgeIntersectionPointsCollinearCompletenessCounterexample false
+
+lineSegmentEdgeIntersectionPointsCollinearCompletenessCounterexample
+    :: SBV.SBool
+    -> SBV.Symbolic SBV.SBool
+lineSegmentEdgeIntersectionPointsCollinearCompletenessCounterexample vertical =
+    lineSegmentEdgeIntersectionPointsCounterexample $ \first@((x1, _), (x2, _)) second@(p3, p4) slots ->
+        det2x2 (lineIntersectionMatrix first second) .==. 0
+            .&&. pointOnLine first p3
+            .&&. ((x1 .==. x2) .<=>. vertical)
+            .&&. logicAny
+                [ requiredPointIsMissing first slots p3
+                , requiredPointIsMissing first slots p4
+                ]
+
+requiredPointIsMissing
+    :: SEdge
+    -> [(SBV.SBool, SPoint)]
+    -> SPoint
     -> SBV.SBool
-lineSegmentEdgeIntersectionPointsSoundness
-    (SBV.Forall x1)
-    (SBV.Forall y1)
-    (SBV.Forall x2)
-    (SBV.Forall y2)
-    (SBV.Forall x3)
-    (SBV.Forall y3)
-    (SBV.Forall x4)
-    (SBV.Forall y4) =
+requiredPointIsMissing first@(firstStart, firstEnd) slots point =
+    pointOnEdge first point
+        .&&. b_not (pointEq point firstStart)
+        .&&. b_not (pointEq point firstEnd)
+        .&&. b_not (returnedSlotsContain slots point)
+
+returnedSlotsContain
+    :: [(SBV.SBool, SPoint)]
+    -> SPoint
+    -> SBV.SBool
+returnedSlotsContain slots point =
+    logicAny
+        [ present .&&. pointEq returnedPoint point
+        | (present, returnedPoint) <- slots
+        ]
+
+lineSegmentEdgeIntersectionPointsSoundnessCounterexample
+    :: (SEdge -> SEdge -> SBV.SBool)
+    -> SBV.Symbolic SBV.SBool
+lineSegmentEdgeIntersectionPointsSoundnessCounterexample branchCondition =
+    lineSegmentEdgeIntersectionPointsCounterexample $ \firstSegment secondSegment slots ->
+        branchCondition firstSegment secondSegment
+            .&&. logicAny
+                [ present
+                    .&&. b_not
+                        (parametricReturnedIntersectionEquivalent
+                            firstSegment secondSegment point)
+                | (present, point) <- slots
+                ]
+
+lineSegmentEdgeIntersectionPointsCounterexample
+    :: (SEdge -> SEdge -> [(SBV.SBool, SPoint)] -> SBV.SBool)
+    -> SBV.Symbolic SBV.SBool
+lineSegmentEdgeIntersectionPointsCounterexample counterexample = do
+    x1 <- SBV.sReal "x1"
+    y1 <- SBV.sReal "y1"
+    x2 <- SBV.sReal "x2"
+    y2 <- SBV.sReal "y2"
+    x3 <- SBV.sReal "x3"
+    y3 <- SBV.sReal "y3"
+    x4 <- SBV.sReal "x4"
+    y4 <- SBV.sReal "y4"
+    let firstSegment = ((x1, y1), (x2, y2))
+        secondSegment = ((x3, y3), (x4, y4))
+        [slot1, slot2] =
+            lineSegmentEdgeIntersectionPoints firstSegment secondSegment
+        nonDegenerateSegments =
+            (x1 ./=. x2 .||. y1 ./=. y2)
+                .&&. (x3 ./=. x4 .||. y3 ./=. y4)
+    pure $
         nonDegenerateSegments
-            .=>. (slotSound slot1 .&&. slotSound slot2)
-  where
-    firstSegment = ((x1, y1), (x2, y2))
-    secondSegment = ((x3, y3), (x4, y4))
-    [slot1, slot2] = lineSegmentEdgeIntersectionPoints firstSegment secondSegment
-
-    nonDegenerateSegments =
-        (x1 ./=. x2 .||. y1 ./=. y2)
-            .&&. (x3 ./=. x4 .||. y3 ./=. y4)
-
-    slotSound (present, point) =
-        present
-            .=>. parametricReturnedIntersectionEquivalent
-                firstSegment secondSegment point
+            .&&. counterexample firstSegment secondSegment [slot1, slot2]
 
 parametricReturnedIntersectionEquivalent
     :: SEdge
