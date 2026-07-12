@@ -806,7 +806,7 @@ lineSegmentEdgeIntersectionPoints
 lineSegmentEdgeIntersectionPoints ls@(p1, p2) edge@(p3, p4) =  
     logicIte segmentsIntersectInOnePoint  
     (logicIte isAnEndPointOfLs dummyPointList [(true, intersection), dummyPoint])
-    (logicIte segmentsColinear (logicIte segmentsColinarButOnlyIntersectInOnePoint dummyPointList (logicIte intersectsColinearAndOverlaps [(b_not (pointEq p5 p1 .||. pointEq p5 p2), p5), (b_not (pointEq p6 p1 .||. pointEq p6 p2), p6)] dummyPointList)) dummyPointList)
+    (logicIte segmentsColinear ((logicIte intersectsColinearAndOverlaps [(b_not (pointEq p5 p1 .||. pointEq p5 p2), p5), (b_not (pointEq p6 p1 .||. pointEq p6 p2), p6)] dummyPointList)) dummyPointList)
   where
     dummyPoint = (false, (0,0))
     dummyPointList = [dummyPoint, dummyPoint]
@@ -820,7 +820,6 @@ lineSegmentEdgeIntersectionPoints ls@(p1, p2) edge@(p3, p4) =
         .&&. isInRect ls intersection
         .&&. isInRect edge intersection 
     segmentsColinear = b_not linesIntersectInOnePoint .&&. pointOnLine ls p3
-    segmentsColinarButOnlyIntersectInOnePoint = pointEq p1 p3 .||. pointEq p1 p4 .||. pointEq p2 p3 .||. pointEq p2 p4 
     intersectsColinearAndOverlaps = (isInRect ls p3 .||. isInRect ls p4 .||. isInRect edge p1 .||. isInRect edge p2)
     [_,p5,p6,_] = sortPointsOnLineSegment ls [p1,p2,p3,p4]
 
