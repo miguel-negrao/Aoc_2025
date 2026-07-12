@@ -118,10 +118,15 @@ import Data.Ratio (numerator, denominator, (%))
 import qualified Data.MemoCombinators.Class as Memo
 import qualified Data.SBV as SBV
 
+-- Z3 coverage: the `Z3-tested` comments below name the symbolic properties in
+-- test/Main.hs that exercise each function, directly or through a tested
+-- caller. Functions without such a marker currently have no Z3-based test.
+
 -- | Boolean operations shared by concrete calculations and SBV formulas.
 --
 -- The methods deliberately operate only on Boolean-valued expressions. Numeric
 -- equality and ordering belong in a separate abstraction over the numeric type.
+-- Z3-tested through the symbolic geometry and sorting properties.
 infixr 3 .&&.
 infixr 2 .||., .<+>.
 infixr 1 .=>., .<=>.
@@ -147,6 +152,7 @@ type family LogicBoolean a where
     LogicBoolean a = Bool
 
 -- | Equality whose result can be either a concrete or symbolic Boolean.
+-- Z3-tested through the symbolic geometry and solver properties.
 infix 4 .==., ./=.
 
 -- ChatGPT
@@ -156,6 +162,7 @@ class BooleanLogic (LogicBoolean a) => LogicEq a where
     left ./=. right = b_not (left .==. right)
 
 -- | Ordering whose result can be either a concrete or symbolic Boolean.
+-- Z3-tested through the symbolic geometry and sorting properties.
 infix 4 .<., .<=., .>., .>=.
 
 -- ChatGPT
@@ -188,6 +195,7 @@ instance BooleanLogic SBV.SBool where
     (.<=>.) = (SBV..<=>)
 
 -- | Conditional selection shared by concrete and symbolic conditions.
+-- Z3-tested through the symbolic sorting and polygon containment properties.
 class LogicIte condition value where
     logicIte :: condition -> value -> value -> value
 
@@ -224,10 +232,12 @@ instance {-# OVERLAPPING #-} LogicOrd SBV.SReal where
     (.>=.) = (SBV..>=)
 
 -- ChatGPT
+-- Z3-tested indirectly by the polygon containment properties.
 logicAll :: BooleanLogic b => [b] -> b
 logicAll = foldr (.&&.) true
 
 -- ChatGPT
+-- Z3-tested by symbolicLogicSortOrdersThree and the polygon properties.
 logicAny :: BooleanLogic b => [b] -> b
 logicAny = foldr (.||.) false
 
@@ -235,6 +245,7 @@ logicAny = foldr (.||.) false
 -- | Insertion sort whose comparisons and conditional swaps may be symbolic.
 -- The list length is fixed; symbolic conditions select which value occupies
 -- each output position.
+-- Z3-tested by symbolicLogicSortOrdersThree and the polygon properties.
 logicSort
     :: (LogicOrd a, LogicIte (LogicBoolean a) a)
     => [a]
@@ -242,6 +253,7 @@ logicSort
 logicSort = logicSortOn id
 
 -- ChatGPT
+-- Z3-tested by symbolicLogicSortOrdersThree and the polygon properties.
 logicSortOn
     :: (LogicOrd key, LogicIte (LogicBoolean key) value)
     => (value -> key)
@@ -257,6 +269,7 @@ logicSortOn f = foldr insert []
         smaller = logicIte valueComesFirst value next
         larger = logicIte valueComesFirst next value
 
+-- Z3-tested by the polygon containment properties.
 logicSortOnFiltered
     :: (boolean ~ LogicBoolean key, LogicOrd key, LogicIte boolean (boolean, value))
     => (value -> key)
@@ -308,6 +321,7 @@ logicSortOnFiltered f = foldr insert []
 --   = True  .<+>. True
 --   = False
 -- @
+-- Z3-tested by the pointInPolygon properties.
 oddParity :: BooleanLogic b => [b] -> b
 oddParity = foldr (.<+>.) false
 
@@ -357,12 +371,17 @@ part1 xs =  case ys of
     where
         ys = sortOn Down $ fmap (uncurry area) ((\[a,b] -> (a,b)) <$> choose 2 xs)
 
+-- Z3-tested by the polygon containment properties.
 pointScalarMult :: Num a => a -> Point a  -> Point a
 pointScalarMult a (x,y) = (a*x,a*y)
 
+-- Z3-tested by the half-ray and polygon properties.
 pointSum :: Num a => Point a -> Point a -> Point a
 pointSum (x1,y1) (x2,y2) = (x1+x2,y1+y2)
 
+-- Z3-tested by solve2x2JustResultSolvesSystem, nonzeroDeterminantImpliesOneSolution,
+-- segmentIntersectionMatchesParametricSolution, and
+-- parametricIntersectionImpliesNonzeroDeterminant.
 det2x2 :: Num a => (Point a, Point a) -> a
 det2x2 ((a1,b1), (a2,b2)) = a1*b2 - a2*b1
 
@@ -371,6 +390,8 @@ det2x2 ((a1,b1), (a2,b2)) = a1*b2 - a2*b1
 -- solve
 -- a1 b1 x x = c1
 -- a2 b2   y   c2 
+-- Z3-tested by solve2x2JustResultSolvesSystem and
+-- segmentIntersectionMatchesParametricSolution.
 solve2x2' :: Fractional a => (Point a, Point a) -> Point a -> a -> Point a
 solve2x2' a@((a1,b1),(a2,b2)) (c1,c2) det = ( (c1*b2-b1*c2) / det, (a1*c2 - c1 * a2) / det )
 
@@ -380,6 +401,7 @@ solve2x2' a@((a1,b1),(a2,b2)) (c1,c2) det = ( (c1*b2-b1*c2) / det, (a1*c2 - c1 *
 -- by Cramer's rule. The returned point is meaningful only when the Boolean is
 -- true. Keeping the condition as a value allows the same function to work with
 -- both Bool and SBV.SBool.
+-- Z3-tested by solve2x2JustResultSolvesSystem and the geometry properties.
 solve2x2 :: (Fractional a, LogicEq a) => (Point a, Point a) -> Point a -> (LogicBoolean a, Point a)
 solve2x2 a c = (det ./=. 0, res) where
     det = det2x2 a
@@ -403,18 +425,22 @@ can be checked by determinant of vectors as lines of matrix is zero
 
 (y2 - y1)*w + (x1 - x2)*z = x1*y2 - x2*y1
 --}
+-- Z3-tested by the segment-intersection and half-ray properties.
 lineIntersectionMatrix :: Num a => Edge a -> Edge a -> (Point a, Point a)
 lineIntersectionMatrix ((x1, y1), (x2, y2)) ((x3, y3), (x4, y4)) =
     ((y2 - y1, x1-x2), (y4 - y3, x3 - x4))
 
+-- Z3-tested by the segment-intersection and half-ray properties.
 lineIntersectionConstants :: Num a => Edge a -> Edge a -> Point a
 lineIntersectionConstants ((x1, y1), (x2, y2)) ((x3, y3), (x4, y4)) =
     (x1 * y2 - x2 * y1, x3 * y4 - x4 * y3)
 
+-- Z3-tested indirectly by the geometry properties through isInInterval.
 booleanIte :: (BooleanLogic b) => b -> b -> b -> b
 booleanIte cond whenTrue whenFalse =
     (cond .&&. whenTrue) .||. (b_not cond .&&. whenFalse)
 
+-- Z3-tested indirectly by the geometry properties through isInRect.
 isInInterval :: LogicOrd a => a -> a -> a -> LogicBoolean a
 isInInterval x1 x2 x3 =
         booleanIte
@@ -422,10 +448,12 @@ isInInterval x1 x2 x3 =
         (x1 .<=. x3 .&&. x3 .<=. x2)
         (x2 .<=. x3 .&&. x3 .<=. x1)
 
+-- Z3-tested by the point, segment-intersection, half-ray, and polygon properties.
 isInRect :: LogicOrd a => Edge a -> Point a -> LogicBoolean a
 isInRect ((x1,y1), (x2,y2)) (x3,y3) =
     isInInterval x1 x2 x3 .&&. isInInterval y1 y2 y3
 
+-- Z3-tested by the point, segment-intersection, half-ray, and polygon properties.
 pointEq :: LogicEq a => Point a -> Point a -> LogicBoolean a
 pointEq (x1, y1) (x2, y2) = x1 .==. x2 .&&. y1 .==. y2
 
@@ -435,6 +463,7 @@ hasLineSegmentsIntersectAtInteriorPoint
     => Edge a
     -> Edge a
     -> LogicBoolean a
+-- Z3-tested by symbolicProperSegmentIntersectionExamples.
 hasLineSegmentsIntersectAtInteriorPoint edgeA edgeB = fst $ lineSegmentIntersectionAtInteriorPoint edgeA edgeB
 
 lineSegmentIntersectionAtInteriorPoint
@@ -442,6 +471,7 @@ lineSegmentIntersectionAtInteriorPoint
     => Edge a
     -> Edge a
     -> (LogicBoolean a, Point a)
+-- Z3-tested indirectly by symbolicProperSegmentIntersectionExamples.
 lineSegmentIntersectionAtInteriorPoint edgeA@(p1, p2) edgeB@(p3, p4) = (intersects, intersection)
   where
     (hasUniqueIntersection, intersection) =
@@ -480,6 +510,7 @@ lineSegmentIntersectionAtInteriorPoint edgeA@(p1, p2) edgeB@(p3, p4) = (intersec
 -- Thus a genuine crossing changes parity once, while a vertex at which the
 -- polygon merely touches the ray changes it zero or two times.  Whether the
 -- tested point itself lies on the polygon boundary is a separate question.
+-- Z3-tested by the half-ray endpoint properties and the pointInPolygon properties.
 lineSegmentIntersectsHalfRayGoingRight
     :: (Fractional a, LogicOrd a)
     => Point a
@@ -721,6 +752,7 @@ min(y₁,y₂) ≤ y ≤ max(y₁,y₂)
 
 Also proved with SBV
 --}
+-- Z3-tested by the pointOnEdge and polygon properties.
 pointOnEdge :: (Num a, LogicOrd a) => Edge a -> Point a -> LogicBoolean a
 pointOnEdge edge@(p1@(x1,y1),p2@(x2,y2)) p@(x,y) = 
     pointEq p p1
@@ -731,9 +763,11 @@ pointOnEdge edge@(p1@(x1,y1),p2@(x2,y2)) p@(x,y) =
         )
 
 
+-- Z3-tested by the pointOnLine, pointOnEdge, and polygon properties.
 pointOnLine :: (Num a, LogicOrd a) => Edge a -> Point a -> LogicBoolean a
 pointOnLine (p1@(x1,y1),p2@(x2,y2)) p@(x,y) = (x - x1)*(y2-y1) .==. (y - y1)*(x2-x1)
 
+-- Z3-tested indirectly by the pointInPolygon properties.
 pointOnAnyEdge :: (Num a, LogicOrd a) => [Edge a] -> Point a -> LogicBoolean a
 pointOnAnyEdge edges p = logicAny $ fmap ((flip pointOnEdge) p) edges
 
@@ -790,6 +824,8 @@ pointInPolygon
     => [Edge a]
     -> Point a
     -> LogicBoolean a
+-- Z3-tested by symbolicPointInPolygonMatchesRectangleCheck and
+-- symbolicPointInPolygonTriangleCounterexample.
 pointInPolygon edges point = pointOnAnyEdge edges point .||. isInside where
     isInside = oddParity (map (lineSegmentIntersectsHalfRayGoingRight point) edges)
 
@@ -815,6 +851,8 @@ lineSegmentEdgeIntersectionPoints
     => Edge a
     -> Edge a
     -> [(b, Point a)]
+-- Z3-tested by lineSegmentEdgeIntersectionPointsSoundness and the polygon
+-- containment properties.
 lineSegmentEdgeIntersectionPoints ls@(p1, p2) edge@(p3, p4) =  
     logicIte segmentsIntersectInOnePoint  
     (logicIte isAnEndPointOfLs dummyPointList [(true, intersection), dummyPoint])
@@ -846,6 +884,7 @@ sortPointsOnLineSegment
        , LogicIte b (Point a)
        ) =>
     Edge a -> [Point a] -> [Point a]
+-- Z3-tested indirectly by lineSegmentEdgeIntersectionPointsSoundness.
 sortPointsOnLineSegment ((x1,_),(x2,_)) xs =
     logicIte (x1 .==. x2) sortY sortX where
         sortX = logicSortOn fst xs
@@ -863,6 +902,7 @@ sortPointsOnLineSegmentFiltered
        , LogicIte b (b, (a, a))
        ) =>
     Edge a -> [(b, Point a)] -> [(b, Point a)]
+-- Z3-tested by the polygon containment properties.
 sortPointsOnLineSegmentFiltered ((x1,_),(x2,_)) xs =
     logicIte (x1 .==. x2) sortY sortX where
         sortX = logicSortOnFiltered fst xs
@@ -893,6 +933,7 @@ lineSegmentIsInsideOrOn
     [Edge a]
     -> Edge a
     -> b
+-- Z3-tested by the polygon containment properties.
 lineSegmentIsInsideOrOn edges segment@(a,b) = logicAll $ fmap g all where
     intersections :: [(b,Point a)]
     intersections = concatMap (lineSegmentEdgeIntersectionPoints segment) edges
@@ -919,6 +960,8 @@ polygonIsInsideOrOn
     => [Edge a]
     -> [Edge a]
     -> b
+-- Z3-tested by polygonIsInsideOrOnTriangleSoundnessCounterexample and
+-- polygonIsInsideOrOnTriangleCompletenessCounterexample.
 polygonIsInsideOrOn edgesA edgesB = logicAll $ fmap (lineSegmentIsInsideOrOn edgesB) edgesA
 
 --  a +-------------+ d
