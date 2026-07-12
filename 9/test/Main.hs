@@ -178,11 +178,11 @@ main = defaultMain $ testGroup "AoC5"
                 outerSquare
                 innerSquare
         ]
-    -- , testCase "part2 example" $ do
-    --     input <- TIO.readFile "test_input"
-    --     case parse parser "test_input" input of
-    --         Left err -> assertFailure (show err)
-    --         Right parsed -> assertEqual "part2" 24 (part2 parsed)
+    , testCase "part2 example" $ do
+        input <- TIO.readFile "test_input"
+        case parse parser "test_input" input of
+            Left err -> assertFailure (show err)
+            Right parsed -> assertEqual "part2" 24 (part2 parsed)
     -- , testCase "part2 final" $ do
     --     input <- TIO.readFile "input"
     --     case parse parser "input" input of
