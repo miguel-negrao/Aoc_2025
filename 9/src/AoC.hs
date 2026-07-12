@@ -987,10 +987,10 @@ part2 vertices = case areas of
         vertices' :: [Point Double]
         vertices' = over (traverse . both) fromIntegral vertices
         edges = verticesToEdges vertices'
+        memoPointInPolygonDouble' = memoPointInPolygonDouble edges
         rectanglesInsidePolygon = do
             [v@(x1,y1), w@(x2,y2)] <- choose 2 vertices
             let 
-
                 [v'::Point Double,w'] = over (traverse. both) fromIntegral [v,w]
                 rectangle = makeRectangle v' w'
             guard $ x1 /= x2 && y1 /= y2 && polygonIsInsideOrOn rectangle edges
