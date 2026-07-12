@@ -703,7 +703,7 @@ polygonIsInsideOrOnTriangleCounterexample disagreement = do
         verticesA = [a1, a2, a3]
         edgesA = [(a1, a2), (a2, a3), (a3, a1)]
         edgesB = [(b1, b2), (b2, b3), (b3, b1)]
-        implementationCheck = symbolicPolygonIsInsideOrOn edgesA edgesB
+        implementationCheck = polygonIsInsideOrOn edgesA edgesB
         barycentricCheck = SBV.sAnd
             [ sPointInTriangleByBarycentricCoordinates b1 b2 b3 vertex
             | vertex <- verticesA
