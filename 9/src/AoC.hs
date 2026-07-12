@@ -23,12 +23,13 @@ used chatgpt: no
 notes: very easy, was very similar to day 8. This means part 2 will be hard!
 
 part2
-time: 2 weeks
+time: 5 weeks
 attempts: 1
-used chatgpt: yes, to research computacional geometry alrightms in general, but also wikipedia. It was used to determine the algorithmn for the function polygonIsInsideOrOn. ChatGPT as used to help create sbv proofs of correctness for my hand-coded functions.  All the code in thihs file is my own.
-notes:
-I decided to first research a bit the algorithms used for this, as this seemed a bit too far away from the usual CS algorithms.
-The algorithm was a too tricky to find on my own because touching edges and vertices must be allowed. In the end I needed help for the algorithmn of one of the functions. The first try was correct, clocking at 4m execution time (used Rational). Will try to make it more eficient (and still correct).
+used chatgpt:
+I decided to first research a bit the algorithms used for this, as this seemed a bit too far away from the usual CS algorithms and I never had experience with computational geometry. I read on the subject, than started to ask ChatGPT to suggest the general  algorithmn to follow. It gave me a sketch, which I implemented, and it got the correct result. Then I started adding SBV based tests, which demonstrated that actually this algorithm was not correct, I just got lucky on my example. So I started from scractch with the current algorithmn. The algorithmn was suggested by chatgpt (general sketch) and I implemented it myself in this file. I then got as much tests as possible using SBV and Z3 for the algorithm. The tests were written by ChatGPT under my guidance. The tests actually caught a couple of corner cases which were then easy to fix in my code. Finally the approach of sharing code between the symbolic SBV version and the Double-based version was too slow, specially the keeping inactive points on a list and sorting those points too.  I asked chatgpt to create efficiente versions of my generic functions which removed the SBV stuff. This was just a mechanical translation, it was boring to do, hence I didn't do it myself. It's a pitty that for such an algorithmn it is not possible to have a version which works for a SBV and the actual version that is used be the same, but SBV has trouble dealing with ifs and lists of different sizes, since it has to merge those values.
+
+Finally, I couldn't directly prove soundness and completeness of the main functions for triangles, because Z3 does not finish in time. The algorithm appears to be too complex for Z3 to proove. The ideia would be to prove using a parametric version of a triangle where testing if a point is inside the trianble is much easier.
+
 
 times:
 1st attempt: 4m
@@ -49,12 +50,11 @@ All
 All 4 tests passed (228.41s)
 Benchmark bench: FINISH
 
-todo: improve speed
+5th attempt 6s (now with a really correct result checked by Z3)
 
-New approach:
-algorithm
-polygon is inside or on if all the edges are inside or on boundary.
+
 --}
+
 
 module AoC
     ( Parser
