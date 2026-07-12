@@ -1081,7 +1081,6 @@ memoPointInPolygonDouble edges p = memoPointDouble memoPointInPolygon' p where
     memoPointInPolygon' :: Point Double -> Bool
     memoPointInPolygon' = pointInPolygon edges
 
-
 -- Part 2 proper
 
 part2 :: PolygonVertices -> Int
