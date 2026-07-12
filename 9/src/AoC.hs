@@ -126,11 +126,11 @@ import qualified Data.SBV as SBV
 --
 -- The methods deliberately operate only on Boolean-valued expressions. Numeric
 -- equality and ordering belong in a separate abstraction over the numeric type.
--- Z3-tested through the symbolic geometry and sorting properties.
 infixr 3 .&&.
 infixr 2 .||., .<+>.
 infixr 1 .=>., .<=>.
 
+-- Z3-tested through the symbolic geometry and sorting properties.
 -- ChatGPT
 class BooleanLogic b where
     true :: b
@@ -152,9 +152,9 @@ type family LogicBoolean a where
     LogicBoolean a = Bool
 
 -- | Equality whose result can be either a concrete or symbolic Boolean.
--- Z3-tested through the symbolic geometry and solver properties.
 infix 4 .==., ./=.
 
+-- Z3-tested through the symbolic geometry and solver properties.
 -- ChatGPT
 class BooleanLogic (LogicBoolean a) => LogicEq a where
     (.==.) :: a -> a -> LogicBoolean a
@@ -162,9 +162,9 @@ class BooleanLogic (LogicBoolean a) => LogicEq a where
     left ./=. right = b_not (left .==. right)
 
 -- | Ordering whose result can be either a concrete or symbolic Boolean.
--- Z3-tested through the symbolic geometry and sorting properties.
 infix 4 .<., .<=., .>., .>=.
 
+-- Z3-tested through the symbolic geometry and sorting properties.
 -- ChatGPT
 class LogicEq a => LogicOrd a where
     (.<.) :: a -> a -> LogicBoolean a
@@ -458,20 +458,20 @@ pointEq :: LogicEq a => Point a -> Point a -> LogicBoolean a
 pointEq (x1, y1) (x2, y2) = x1 .==. x2 .&&. y1 .==. y2
 
 
+-- Z3-tested by symbolicProperSegmentIntersectionExamples.
 hasLineSegmentsIntersectAtInteriorPoint
     :: (Fractional a, LogicOrd a)
     => Edge a
     -> Edge a
     -> LogicBoolean a
--- Z3-tested by symbolicProperSegmentIntersectionExamples.
 hasLineSegmentsIntersectAtInteriorPoint edgeA edgeB = fst $ lineSegmentIntersectionAtInteriorPoint edgeA edgeB
 
+-- Z3-tested indirectly by symbolicProperSegmentIntersectionExamples.
 lineSegmentIntersectionAtInteriorPoint
     :: (Fractional a, LogicOrd a)
     => Edge a
     -> Edge a
     -> (LogicBoolean a, Point a)
--- Z3-tested indirectly by symbolicProperSegmentIntersectionExamples.
 lineSegmentIntersectionAtInteriorPoint edgeA@(p1, p2) edgeB@(p3, p4) = (intersects, intersection)
   where
     (hasUniqueIntersection, intersection) =
@@ -819,13 +819,13 @@ polygonEdgesProperlyIntersect edgesA edgesB =
 --                  +---------------------+
 --                      1.036 s ±  70 ms
 
+-- Z3-tested by symbolicPointInPolygonMatchesRectangleCheck and
+-- symbolicPointInPolygonTriangleCounterexample.
 pointInPolygon
     :: (Fractional a, LogicOrd a)
     => [Edge a]
     -> Point a
     -> LogicBoolean a
--- Z3-tested by symbolicPointInPolygonMatchesRectangleCheck and
--- symbolicPointInPolygonTriangleCounterexample.
 pointInPolygon edges point = pointOnAnyEdge edges point .||. isInside where
     isInside = oddParity (map (lineSegmentIntersectsHalfRayGoingRight point) edges)
 
@@ -840,6 +840,8 @@ memoPointInPolygon edges p = memoIntegralPoint memoPointInPolygon' p where
 -- |
 -- This assumes the line segments are not degenerate => p1 /= p2 && p3 /= p4.
 -- It also returns empty list if the intersection is any of the endpoints of ls.
+-- Z3-tested by lineSegmentEdgeIntersectionPointsSoundness and the polygon
+-- containment properties.
 lineSegmentEdgeIntersectionPoints
     :: forall a b .
     (Fractional a
@@ -851,8 +853,6 @@ lineSegmentEdgeIntersectionPoints
     => Edge a
     -> Edge a
     -> [(b, Point a)]
--- Z3-tested by lineSegmentEdgeIntersectionPointsSoundness and the polygon
--- containment properties.
 lineSegmentEdgeIntersectionPoints ls@(p1, p2) edge@(p3, p4) =  
     logicIte segmentsIntersectInOnePoint  
     (logicIte isAnEndPointOfLs dummyPointList [(true, intersection), dummyPoint])
@@ -877,6 +877,7 @@ lineSegmentEdgeIntersectionPoints ls@(p1, p2) edge@(p3, p4) =
 -- |
 -- Either the line segment is vertical and then we sort by the Y coordinate, or it is not vertical and X values will have different values,
 -- so we sort using the X coordinate.
+-- Z3-tested indirectly by lineSegmentEdgeIntersectionPointsSoundness.
 sortPointsOnLineSegment 
     :: ( LogicOrd a
        , b ~ LogicBoolean a
@@ -884,7 +885,6 @@ sortPointsOnLineSegment
        , LogicIte b (Point a)
        ) =>
     Edge a -> [Point a] -> [Point a]
--- Z3-tested indirectly by lineSegmentEdgeIntersectionPointsSoundness.
 sortPointsOnLineSegment ((x1,_),(x2,_)) xs =
     logicIte (x1 .==. x2) sortY sortX where
         sortX = logicSortOn fst xs
@@ -893,6 +893,7 @@ sortPointsOnLineSegment ((x1,_),(x2,_)) xs =
 -- |
 -- Either the line segment is vertical and then we sort by the Y coordinate, or it is not vertical and X values will have different values,
 -- so we sort using the X coordinate.
+-- Z3-tested by the polygon containment properties.
 sortPointsOnLineSegmentFiltered 
     :: ( LogicOrd a
        , b ~ LogicBoolean a
@@ -902,7 +903,6 @@ sortPointsOnLineSegmentFiltered
        , LogicIte b (b, (a, a))
        ) =>
     Edge a -> [(b, Point a)] -> [(b, Point a)]
--- Z3-tested by the polygon containment properties.
 sortPointsOnLineSegmentFiltered ((x1,_),(x2,_)) xs =
     logicIte (x1 .==. x2) sortY sortX where
         sortX = logicSortOnFiltered fst xs
@@ -922,6 +922,7 @@ sortPointsOnLineSegmentFiltered ((x1,_),(x2,_)) xs =
 --    - the midpoint between every consecutive pair.
 -- Require every tested point to be inside or on boundary.
 --
+-- Z3-tested by the polygon containment properties.
 lineSegmentIsInsideOrOn
     :: forall a b . (Fractional a, LogicOrd a
     , b ~ LogicBoolean a
@@ -933,7 +934,6 @@ lineSegmentIsInsideOrOn
     [Edge a]
     -> Edge a
     -> b
--- Z3-tested by the polygon containment properties.
 lineSegmentIsInsideOrOn edges segment@(a,b) = logicAll $ fmap g all where
     intersections :: [(b,Point a)]
     intersections = concatMap (lineSegmentEdgeIntersectionPoints segment) edges
@@ -948,6 +948,8 @@ lineSegmentIsInsideOrOn edges segment@(a,b) = logicAll $ fmap g all where
 
 -- |
 -- If i keep this version I can't use memoization.
+-- Z3-tested by polygonIsInsideOrOnTriangleSoundnessCounterexample and
+-- polygonIsInsideOrOnTriangleCompletenessCounterexample.
 polygonIsInsideOrOn
     ::(
         LogicBoolean a ~ b
@@ -960,8 +962,6 @@ polygonIsInsideOrOn
     => [Edge a]
     -> [Edge a]
     -> b
--- Z3-tested by polygonIsInsideOrOnTriangleSoundnessCounterexample and
--- polygonIsInsideOrOnTriangleCompletenessCounterexample.
 polygonIsInsideOrOn edgesA edgesB = logicAll $ fmap (lineSegmentIsInsideOrOn edgesB) edgesA
 
 --  a +-------------+ d
