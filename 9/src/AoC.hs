@@ -259,6 +259,21 @@ logicSortOn f = foldr insert []
         smaller = logicIte valueComesFirst value next
         larger = logicIte valueComesFirst next value
 
+logicSortOnFiltered
+    :: (boolean ~ LogicBoolean key, LogicOrd key, LogicIte boolean value)
+    => (value -> key)
+    -> [(boolean, value)]
+    -> [(boolean, value)]
+logicSortOnFiltered f = foldr insert []
+  where
+    insert value [] = [value]
+    insert value'@(b1,value) (next'@(b2,next):rest) =
+        smaller : insert larger rest
+      where
+        valueComesFirst = b1 .&&. (b_not b2 .||. f value .<=. f next)
+        smaller = logicIte valueComesFirst value' next'
+        larger = logicIte valueComesFirst next' value'
+
 -- ChatGPT
 -- | True exactly when an odd number of elements are true.
 --
@@ -828,14 +843,15 @@ lineSegmentEdgeIntersectionPoints ls@(p1, p2) edge@(p3, p4) =
 -- so we sort using the X coordinate.
 sortPointsOnLineSegment 
     :: ( LogicOrd a
-       , LogicIte (LogicBoolean a) ([Point a])
-       , LogicIte (LogicBoolean a) (Point a)
+       , b ~ LogicBoolean a
+       , LogicIte b ([Point a])
+       , LogicIte b (Point a)
        ) =>
-    Edge a -> [Point a] -> [Point a]
+    Edge a -> [(b, Point a)] -> [(b, Point a)]
 sortPointsOnLineSegment ((x1,_),(x2,_)) xs =
     logicIte (x1 .==. x2) sortY sortX where
-        sortX = logicSortOn fst xs
-        sortY = logicSortOn snd xs
+        sortX = logicSortOnFiltered fst xs
+        sortY = logicSortOnFiltered snd xs
 
 -- |
 -- Algorithm:
@@ -852,20 +868,22 @@ sortPointsOnLineSegment ((x1,_),(x2,_)) xs =
 -- Require every tested point to be inside or on boundary.
 --
 lineSegmentIsInsideOrOn
-    :: forall a. (Fractional a, LogicOrd a
-    , LogicIte (LogicBoolean a) (Point a)
-    , LogicIte (LogicBoolean a) ([Point a])
-    , LogicIte (LogicBoolean a) ([(LogicBoolean a, Point a)]))
-    => ([Point a], [Edge a])
+    :: forall a b . (Fractional a, LogicOrd a
+    , b ~ LogicBoolean a
+    , LogicIte b (Point a)
+    , LogicIte b ([Point a])
+    , LogicIte b ([(LogicBoolean a, Point a)]))
+    => [Edge a]
     -> Edge a
-    -> LogicBoolean a
-lineSegmentIsInsideOrOn (vertices, edges) segment@(a,b) = logicAll $ fmap (pointInPolygon edges) all where
-    intersections :: [Point a]
-    intersections = fmap snd $ concatMap (lineSegmentEdgeIntersectionPoints segment) edges
-    intersectionsAndEndpoints = intersections ++ [a,b]
+    -> b
+lineSegmentIsInsideOrOn edges segment@(a,b) = logicAll $ fmap (pointInPolygon edges) all where
+    intersections :: [(b,Point a)]
+    intersections = concatMap (lineSegmentEdgeIntersectionPoints segment) edges
+    intersectionsAndEndpoints :: [(b,Point a)]
+    intersectionsAndEndpoints = intersections ++ [(true,a),(true,b)]
     sorted = sortPointsOnLineSegment segment intersectionsAndEndpoints
     midpoints = zipWith f sorted (drop 1 sorted) -- last point of sorted will not be used on the second argument of zipWith
-    f a b = pointSum a (pointScalarMult 0.5 b)
+    f (b1,p1) (b2,p2) = logicIte (b1 .&&. b2) (true, (pointScalarMult 0.5 (pointSum p1 p2))) (false, (0,0))
     all = intersectionsAndEndpoints ++ midpoints
 
 -- |
