@@ -201,11 +201,11 @@ rationalPolygonEdges vertices =
 
 assertContained :: String -> [REdge] -> [REdge] -> IO ()
 assertContained message inner outer =
-    assertBool message (polygonIsInsideOrOn inner outer)
+    assertBool message (polygonIsInsideOrOn (pointInPolygon outer) inner outer)
 
 assertNotContained :: String -> [REdge] -> [REdge] -> IO ()
 assertNotContained message inner outer =
-    assertBool message (not (polygonIsInsideOrOn inner outer))
+    assertBool message (not (polygonIsInsideOrOn (pointInPolygon outer) inner outer))
 
 outerSquareVertices :: [RPoint]
 outerSquareVertices =
@@ -323,7 +323,7 @@ boundarySharingArmIsContained :: IO ()
 boundarySharingArmIsContained =
     assertBool
         "the left arm lies inside and shares two boundary sections"
-        (polygonIsInsideOrOn leftArm concaveUShape)
+        (polygonIsInsideOrOn (pointInPolygon concaveUShape) leftArm concaveUShape)
   where
     leftArm = rationalPolygonEdges
         [ (0, 2)
@@ -336,7 +336,7 @@ triangleCrossingConcaveNotchIsNotContained :: IO ()
 triangleCrossingConcaveNotchIsNotContained =
     assertBool
         "all triangle vertices are inside, but both sloping edges enter the notch"
-        (not (polygonIsInsideOrOn triangle concaveUShape))
+        (not (polygonIsInsideOrOn (pointInPolygon concaveUShape) triangle concaveUShape))
   where
     triangle = rationalPolygonEdges
         [ (1, 5)
@@ -348,7 +348,7 @@ concaveNotchRectangleIsNotContained :: IO ()
 concaveNotchRectangleIsNotContained =
     assertBool
         "the rectangle includes the empty notch and is not contained"
-        (not (polygonIsInsideOrOn rectangle outerPolygon))
+        (not (polygonIsInsideOrOn (pointInPolygon outerPolygon) rectangle outerPolygon))
   where
     rectangle
         :: [((Double, Double), (Double, Double))]
@@ -1083,7 +1083,7 @@ polygonIsInsideOrOnTriangleCounterexample disagreement = do
         verticesA = [a1, a2, a3]
         edgesA = [(a1, a2), (a2, a3), (a3, a1)]
         edgesB = [(b1, b2), (b2, b3), (b3, b1)]
-        implementationCheck = polygonIsInsideOrOn edgesA edgesB
+        implementationCheck = polygonIsInsideOrOn (pointInPolygon edgesB) edgesA edgesB
         barycentricCheck = SBV.sAnd
             [ sPointInTriangleByBarycentricCoordinates b1 b2 b3 vertex
             | vertex <- verticesA
