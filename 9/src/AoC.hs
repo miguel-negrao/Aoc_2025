@@ -260,7 +260,7 @@ logicSortOn f = foldr insert []
         larger = logicIte valueComesFirst next value
 
 logicSortOnFiltered
-    :: (boolean ~ LogicBoolean key, LogicOrd key, LogicIte boolean value)
+    :: (boolean ~ LogicBoolean key, LogicOrd key, LogicIte boolean (boolean, value))
     => (value -> key)
     -> [(boolean, value)]
     -> [(boolean, value)]
@@ -847,8 +847,25 @@ sortPointsOnLineSegment
        , LogicIte b ([Point a])
        , LogicIte b (Point a)
        ) =>
-    Edge a -> [(b, Point a)] -> [(b, Point a)]
+    Edge a -> [Point a] -> [Point a]
 sortPointsOnLineSegment ((x1,_),(x2,_)) xs =
+    logicIte (x1 .==. x2) sortY sortX where
+        sortX = logicSortOn fst xs
+        sortY = logicSortOn snd xs
+
+-- |
+-- Either the line segment is vertical and then we sort by the Y coordinate, or it is not vertical and X values will have different values,
+-- so we sort using the X coordinate.
+sortPointsOnLineSegmentFiltered 
+    :: ( LogicOrd a
+       , b ~ LogicBoolean a
+       , LogicIte b ([Point a])
+       , LogicIte b (Point a)
+       , LogicIte b [(b, (a, a))]
+       , LogicIte b (b, (a, a))
+       ) =>
+    Edge a -> [(b, Point a)] -> [(b, Point a)]
+sortPointsOnLineSegmentFiltered ((x1,_),(x2,_)) xs =
     logicIte (x1 .==. x2) sortY sortX where
         sortX = logicSortOnFiltered fst xs
         sortY = logicSortOnFiltered snd xs
@@ -872,19 +889,24 @@ lineSegmentIsInsideOrOn
     , b ~ LogicBoolean a
     , LogicIte b (Point a)
     , LogicIte b ([Point a])
-    , LogicIte b ([(LogicBoolean a, Point a)]))
-    => [Edge a]
+    , LogicIte b ([(LogicBoolean a, Point a)])
+    , LogicIte b (b, (a, a)))
+    =>
+    ([Edge a] -> Point a -> b)
+    -> [Edge a]
     -> Edge a
     -> b
-lineSegmentIsInsideOrOn edges segment@(a,b) = logicAll $ fmap (pointInPolygon edges) all where
+lineSegmentIsInsideOrOn pointMembership edges segment@(a,b) = logicAll $ fmap g all where
     intersections :: [(b,Point a)]
     intersections = concatMap (lineSegmentEdgeIntersectionPoints segment) edges
     intersectionsAndEndpoints :: [(b,Point a)]
     intersectionsAndEndpoints = intersections ++ [(true,a),(true,b)]
-    sorted = sortPointsOnLineSegment segment intersectionsAndEndpoints
+    sorted = sortPointsOnLineSegmentFiltered segment intersectionsAndEndpoints
     midpoints = zipWith f sorted (drop 1 sorted) -- last point of sorted will not be used on the second argument of zipWith
-    f (b1,p1) (b2,p2) = logicIte (b1 .&&. b2) (true, (pointScalarMult 0.5 (pointSum p1 p2))) (false, (0,0))
+    -- this works because the not present points are all at then end of the sorted list
+    f (b1,p1) (b2,p2) = (b1 .&&. b2, pointScalarMult 0.5 (pointSum p1 p2))
     all = intersectionsAndEndpoints ++ midpoints
+    g (boolean, value) = boolean .=>. pointMembership edges value
 
 -- |
 -- After tring a couple of times on my own, I didn't manage to find a criteria that worked, so I asked ChatGPT for help:
@@ -893,28 +915,32 @@ lineSegmentIsInsideOrOn edges segment@(a,b) = logicAll $ fmap (pointInPolygon ed
 -- 3. Ignore boundary touches and collinear overlaps.
 -- Todo: check in SBV
 polygonIsInsideOrOn
-    :: (Fractional a, Integral b, LogicOrd a, LogicBoolean a ~ Bool)
-    => ([Point b], [Edge a])
-    -> ([Point b], [Edge a])
+    :: (Fractional a, LogicOrd a, LogicBoolean a ~ Bool)
+    => [Edge a]
+    -> [Edge a]
     -> Bool
-polygonIsInsideOrOn = undefined -- symbolicPolygonIsInsideOrOn' memoPointInPolygon
+polygonIsInsideOrOn = symbolicPolygonIsInsideOrOn' pointInPolygon -- symbolicPolygonIsInsideOrOn' memoPointInPolygon
 
 symbolicPolygonIsInsideOrOn
-    :: ([Point SBV.SReal], [Edge SBV.SReal])
-    -> ([Point SBV.SReal], [Edge SBV.SReal])
+    :: ([Edge SBV.SReal])
+    -> ([Edge SBV.SReal])
     -> SBV.SBool
 symbolicPolygonIsInsideOrOn = symbolicPolygonIsInsideOrOn' pointInPolygon
 
 symbolicPolygonIsInsideOrOn'
-    :: (Fractional a, LogicOrd a, b ~ LogicBoolean a, LogicIte b (Point a), LogicIte b ([Point a]), LogicIte b ([(b, Point a)]))
+    :: (
+        Fractional a, LogicOrd a
+        , b ~ LogicBoolean a
+        , LogicIte b (Point a)
+        , LogicIte b ([Point a])
+        , LogicIte b ([(b, Point a)])
+        , LogicIte b (b, (a, a)))
     => ([Edge a] -> Point a -> b)
-    -> ([Point a], [Edge a])
-    -> ([Point a], [Edge a])
+    -> ([Edge a])
+    -> ([Edge a])
     -> b
-symbolicPolygonIsInsideOrOn'
-    pointMembership
-    (_, edgesA)
-    polygonB = logicAll $ fmap (lineSegmentIsInsideOrOn polygonB) edgesA
+symbolicPolygonIsInsideOrOn' pointMembership edgesA edgesB =
+    logicAll $ fmap (lineSegmentIsInsideOrOn pointMembership edgesB) edgesA
 
 --  a +-------------+ d
 --    |             |
@@ -943,8 +969,8 @@ part2 vertices = case areas of
         rectanglesInsidePolygon = do
             v@(x1,y1) <- vertices
             w@(x2,y2) <- vertices
-            let rectangle = makeRectangle v w
-            guard $ x1 /= x2 && y1 /= y2 && polygonIsInsideOrOn rectangle polygon
+            let (_,rectangle) = makeRectangle v w
+            guard $ x1 /= x2 && y1 /= y2 && polygonIsInsideOrOn rectangle edges
             return (v,w)
         areas = sortOn Down $ fmap (uncurry area) rectanglesInsidePolygon
 
