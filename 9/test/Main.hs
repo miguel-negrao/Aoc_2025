@@ -120,6 +120,64 @@ main = defaultMain $ testGroup "AoC5"
     , testCase
         "polygon containment rejects rectangle spanning a concave notch"
         concaveNotchRectangleIsNotContained
+    , testCase
+        "polygon containment accepts a boundary-sharing arm (Rational)"
+        boundarySharingArmIsContained
+    , testCase
+        "polygon containment rejects edges crossing a concave notch (Rational)"
+        triangleCrossingConcaveNotchIsNotContained
+    , testGroup "polygon containment Rational corner cases"
+        [ testCase "identical polygon with opposite orientation" $
+            assertContained
+                "orientation must not affect containment"
+                (rationalPolygonEdges (reverse outerSquareVertices))
+                outerSquare
+        , testCase "identical boundary subdivided into collinear edges" $
+            assertContained
+                "subdividing boundary edges must not affect containment"
+                subdividedOuterSquare
+                outerSquare
+        , testCase "contained polygon touches one outer vertex" $
+            assertContained
+                "a tangent contact at a convex vertex is allowed"
+                convexVertexTouchingTriangle
+                outerSquare
+        , testCase "contained polygon vertex lies inside an outer edge" $
+            assertContained
+                "a vertex may touch the interior of a boundary edge"
+                boundaryEdgeTouchingTriangle
+                outerSquare
+        , testCase "outside polygon shares an outer boundary edge" $
+            assertNotContained
+                "sharing an edge does not hide the portion outside"
+                outsideBoundarySharingRectangle
+                outerSquare
+        , testCase "edge touches a reflex vertex and remains inside" $
+            assertContained
+                "an edge may pass through a reflex vertex without leaving"
+                reflexVertexTangentTriangle
+                concaveUShape
+        , testCase "edge enters the notch through a reflex vertex" $
+            assertNotContained
+                "an exact reflex-vertex hit must still detect the outside interval"
+                reflexVertexCrossingTriangle
+                concaveUShape
+        , testCase "one edge crosses a comb four times at fractional points" $
+            assertNotContained
+                "every alternating outside interval along the edge must be tested"
+                combCrossingTriangle
+                concaveComb
+        , testCase "disjoint polygons" $
+            assertNotContained
+                "a disjoint polygon is not contained"
+                disjointSquare
+                outerSquare
+        , testCase "containment direction is not symmetric" $
+            assertNotContained
+                "the outer square is not inside the inner square"
+                outerSquare
+                innerSquare
+        ]
     -- , testCase "part2 example" $ do
     --     input <- TIO.readFile "test_input"
     --     case parse parser "test_input" input of
@@ -131,6 +189,160 @@ main = defaultMain $ testGroup "AoC5"
     --         Left err -> assertFailure (show err)
     --         Right parsed -> assertEqual "part2" 1525991432 (part2 parsed)
     ]
+
+type RPoint = (Rational, Rational)
+
+type REdge = (RPoint, RPoint)
+
+rationalPolygonEdges :: [RPoint] -> [REdge]
+rationalPolygonEdges [] = []
+rationalPolygonEdges vertices =
+    zip vertices (drop 1 vertices ++ take 1 vertices)
+
+assertContained :: String -> [REdge] -> [REdge] -> IO ()
+assertContained message inner outer =
+    assertBool message (polygonIsInsideOrOn inner outer)
+
+assertNotContained :: String -> [REdge] -> [REdge] -> IO ()
+assertNotContained message inner outer =
+    assertBool message (not (polygonIsInsideOrOn inner outer))
+
+outerSquareVertices :: [RPoint]
+outerSquareVertices =
+    [ (0, 0)
+    , (6, 0)
+    , (6, 6)
+    , (0, 6)
+    ]
+
+outerSquare :: [REdge]
+outerSquare = rationalPolygonEdges outerSquareVertices
+
+innerSquare :: [REdge]
+innerSquare = rationalPolygonEdges
+    [ (1, 1)
+    , (5, 1)
+    , (5, 5)
+    , (1, 5)
+    ]
+
+subdividedOuterSquare :: [REdge]
+subdividedOuterSquare = rationalPolygonEdges
+    [ (0, 0)
+    , (3, 0)
+    , (6, 0)
+    , (6, 3)
+    , (6, 6)
+    , (3, 6)
+    , (0, 6)
+    , (0, 3)
+    ]
+
+convexVertexTouchingTriangle :: [REdge]
+convexVertexTouchingTriangle = rationalPolygonEdges
+    [ (0, 0)
+    , (2, 1)
+    , (1, 2)
+    ]
+
+boundaryEdgeTouchingTriangle :: [REdge]
+boundaryEdgeTouchingTriangle = rationalPolygonEdges
+    [ (0, 3)
+    , (2, 2)
+    , (2, 4)
+    ]
+
+outsideBoundarySharingRectangle :: [REdge]
+outsideBoundarySharingRectangle = rationalPolygonEdges
+    [ (2, 6)
+    , (4, 6)
+    , (4, 8)
+    , (2, 8)
+    ]
+
+concaveUShape :: [REdge]
+concaveUShape = rationalPolygonEdges
+    [ (0, 0)
+    , (6, 0)
+    , (6, 6)
+    , (4, 6)
+    , (4, 2)
+    , (2, 2)
+    , (2, 6)
+    , (0, 6)
+    ]
+
+reflexVertexTangentTriangle :: [REdge]
+reflexVertexTangentTriangle = rationalPolygonEdges
+    [ (1, 3)
+    , (3, 1)
+    , (1, 1)
+    ]
+
+reflexVertexCrossingTriangle :: [REdge]
+reflexVertexCrossingTriangle = rationalPolygonEdges
+    [ (1, 1)
+    , (3, 3)
+    , (1, 3)
+    ]
+
+concaveComb :: [REdge]
+concaveComb = rationalPolygonEdges
+    [ (0, 0)
+    , (12, 0)
+    , (12, 8)
+    , (10, 8)
+    , (10, 2)
+    , (8, 2)
+    , (8, 8)
+    , (6, 8)
+    , (6, 2)
+    , (4, 2)
+    , (4, 8)
+    , (2, 8)
+    , (2, 2)
+    , (0, 2)
+    ]
+
+combCrossingTriangle :: [REdge]
+combCrossingTriangle = rationalPolygonEdges
+    [ (11, 6)
+    , (3, 5)
+    , (7, 1)
+    ]
+
+disjointSquare :: [REdge]
+disjointSquare = rationalPolygonEdges
+    [ (8, 8)
+    , (10, 8)
+    , (10, 10)
+    , (8, 10)
+    ]
+
+boundarySharingArmIsContained :: IO ()
+boundarySharingArmIsContained =
+    assertBool
+        "the left arm lies inside and shares two boundary sections"
+        (polygonIsInsideOrOn leftArm concaveUShape)
+  where
+    leftArm = rationalPolygonEdges
+        [ (0, 2)
+        , (2, 2)
+        , (2, 6)
+        , (0, 6)
+        ]
+
+triangleCrossingConcaveNotchIsNotContained :: IO ()
+triangleCrossingConcaveNotchIsNotContained =
+    assertBool
+        "all triangle vertices are inside, but both sloping edges enter the notch"
+        (not (polygonIsInsideOrOn triangle concaveUShape))
+  where
+    triangle = rationalPolygonEdges
+        [ (1, 5)
+        , (3, 1)
+        , (5, 5)
+        ]
 
 concaveNotchRectangleIsNotContained :: IO ()
 concaveNotchRectangleIsNotContained =
