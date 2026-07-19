@@ -26,13 +26,13 @@ import Debug.Trace
 notes:
 part1
 time: 55m
-used chatgpt: just for simple sintax questions like reminding the name of <$ and <|> and how +| and |+ work. Also to check how to implement normalize with a single function (mod suffices).
+used chatgpt: just for simple sintax questions like reminding me the name of <$ and <|> and how +| and |+ work. Also to check how to implement normalize with a single function (mod suffices).
 
 part1 attempts: 1
 part2 attempts: 4
 
 notes:
-I failed part2 because when the position is 0 it is tricky when advaving by 100, the corner cases are too hard.
+I failed part2 because when the position is 0 it is tricky when advancing by 100, the corner cases are too hard.
 I successed by just thinking what happens when moving just one click to the left or right, much simpler.
 --}
 
@@ -54,8 +54,10 @@ pMovement = do
     newline
     return $ Movement direction value
 
-pListMovement :: Parser [Movement]
-pListMovement = many pMovement
+type ParsedType = [Movement]
+
+parser :: Parser [Movement]
+parser = many pMovement
 
 -- The dial starts by pointing at 50
 -- the dial is in range [0,99]
@@ -122,22 +124,23 @@ listPositions3 = scanl moveDial (startPosition, 0)
         moveDial (99, n)  (Movement R rotationAmount) = moveDial (0, n + 1)   (Movement R (rotationAmount -1)) 
         moveDial (pos, n) (Movement R rotationAmount) = moveDial (pos + 1, n) (Movement R (rotationAmount-1))
 
+part1 :: [Movement] -> Int
+part1 movements = getNumZeros $ listPositions movements
+
+part2:: [Movement] -> Int
+part2 movements = fromIntegral $ numZeros2 where
+    numZeros2 = snd $ last positions2
+    positions2 = listPositions3 movements
+
 main :: IO ()
 main = do
-    --input :: Text <- TIO.readFile "test_input"
-    input :: Text <- TIO.readFile "input"
-    case parse pListMovement "file" input of
-        Right movements -> do
-            let 
-                positions = listPositions movements
-                positions2 = listPositions3 movements
-                numZeros2 = snd $ last positions2
-                txt :: Text
-                txt = "Parsed: " +| show movements |+ 
-                      "\npart1 positions: " +|| positions ||+
-                      "\npart1 Num zeros: " +| getNumZeros positions |+
-                      "\npart2 positions: " +|| positions2 ||+
-                      "\npart2 Num zeros: " +|| numZeros2 ||+ "\n"
+    input <- TIO.readFile "input"
+    case parse parser "input" input of
+        Right parsed -> do
+            putStrLn $ "part1: " <> show (part1 parsed) <> "\n"
+            putStrLn $ "part2: " <> show (part2 parsed) <> "\n"
+        Left e -> putStrLn (errorBundlePretty e)
 
-            TIO.putStr txt
-        Left e -> pPrint e
+
+-- part1 Your puzzle answer was 992.
+-- part2 Your puzzle answer was 6133.
