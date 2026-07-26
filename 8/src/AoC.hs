@@ -168,9 +168,6 @@ part2Vectors xs = trace ("part2Vectors  = " <> show result) result where
     sorted = getPairsOrderedByDistance xs
     l = length xs
 
--- >>> part2Vectors tParsed
--- ((216,146,977),(117,168,530))
-
 -- Continuing the above example, the first connection which causes all of the junction boxes to form a single circuit is between the junction boxes at 216,146,977 and 117,168,530. The Elves need to know how far those junction boxes are from the wall so they can pick the right extension cable; multiplying the X coordinates of those two junction boxes (216 and 117) produces 25272.
 
 calcX ((x1,_,_), (x2,_,_)) = x1 * x2 

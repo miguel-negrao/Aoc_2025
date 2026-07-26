@@ -105,13 +105,6 @@ parser = do
     newline
     Database ranges <$> pAvailable
 
-tString = "3-5\n10-14\n16-20\n12-18\n\n1\n5\n8\n11\n17\n32\n"
-
-tDatabase = parse parser "input" tString
-
--- >>> tDatabase
--- Right (Database [(3,5),(10,14),(16,20),(12,18)] [1,5,8,11,17,32])
-
 isFresh :: IngredientRanges -> Natural -> Bool
 isFresh ranges x =
     let
@@ -209,3 +202,34 @@ untilStable n f a
     | otherwise = untilStable (n-1) f a
     where
         fa = f a
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+tString = "3-5\n10-14\n16-20\n12-18\n\n1\n5\n8\n11\n17\n32\n"
+
+tDatabase = parse parser "input" tString
+
+-- >>> tDatabase
+-- Right (Database [(3,5),(10,14),(16,20),(12,18)] [1,5,8,11,17,32])

@@ -71,7 +71,6 @@ type ParsedType = [[Bool]]
 parser :: Parser ParsedType
 parser = many pLine
 
-
 -- COMONAD  STUFF
 
 -- reading material 
@@ -126,8 +125,6 @@ findStableStateError maxInterations f s =
     in case x of
         Just x -> x
         Nothing -> error $ "findStableStateError would not stop after " <> show maxInterations <> " interations"
-
-
 
 -- The comonad functions
 -- extract :: w a -> a                      get the current focused value
@@ -202,43 +199,6 @@ listToString xs = unlines $ fmap (fmap (\x -> if x then '@' else '.')) xs
 storeToString :: TableStore -> String
 storeToString = listToString . storeToList
 
-test1String = "..@@.@@@@.\n@@@.@.@.@@\n@@@@@.@.@@\n@.@@@@..@.\n@@.@@@@.@@\n.@@@@@@@.@\n.@.@.@.@@@\n@.@@@.@@@@\n.@@@@@@@@.\n@.@.@@@.@.\n"
-
-test1parsed = parse parser "input" test1String
-
--- >>> test1parsed
--- Right [[False,False,True,True,False,True,True,True,True,False],[True,True,True,False,True,False,True,False,True,True],[True,True,True,True,True,False,True,False,True,True],[True,False,True,True,True,True,False,False,True,False],[True,True,False,True,True,True,True,False,True,True],[False,True,True,True,True,True,True,True,False,True],[False,True,False,True,False,True,False,True,True,True],[True,False,True,True,True,False,True,True,True,True],[False,True,True,True,True,True,True,True,True,False],[True,False,True,False,True,True,True,False,True,False]]
-
-test1list = case test1parsed of
-    Right xs -> xs
-    Left _ -> [[]]
-
-test1W = length $ head test1list
-test1H = length test1list
-
--- >>> test1list    
--- [[False,False,True,True,False,True,True,True,True,False],[True,True,True,False,True,False,True,False,True,True],[True,True,True,True,True,False,True,False,True,True],[True,False,True,True,True,True,False,False,True,False],[True,True,False,True,True,True,True,False,True,True],[False,True,True,True,True,True,True,True,False,True],[False,True,False,True,False,True,False,True,True,True],[True,False,True,True,True,False,True,True,True,True],[False,True,True,True,True,True,True,True,True,False],[True,False,True,False,True,True,True,False,True,False]]
-
--- >>> T.pack (listToString test1list) == test1String
--- True
-
-test1table = listToTable test1list
-
--- >>> Map.toList test1table
--- [((0,0),False),((0,1),True),((0,2),True),((0,3),True),((0,4),True),((0,5),False),((0,6),False),((0,7),True),((0,8),False),((0,9),True),((1,0),False),((1,1),True),((1,2),True),((1,3),False),((1,4),True),((1,5),True),((1,6),True),((1,7),False),((1,8),True),((1,9),False),((2,0),True),((2,1),True),((2,2),True),((2,3),True),((2,4),False),((2,5),True),((2,6),False),((2,7),True),((2,8),True),((2,9),True),((3,0),True),((3,1),False),((3,2),True),((3,3),True),((3,4),True),((3,5),True),((3,6),True),((3,7),True),((3,8),True),((3,9),False),((4,0),False),((4,1),True),((4,2),True),((4,3),True),((4,4),True),((4,5),True),((4,6),False),((4,7),True),((4,8),True),((4,9),True),((5,0),True),((5,1),False),((5,2),False),((5,3),True),((5,4),True),((5,5),True),((5,6),True),((5,7),False),((5,8),True),((5,9),True),((6,0),True),((6,1),True),((6,2),True),((6,3),False),((6,4),True),((6,5),True),((6,6),False),((6,7),True),((6,8),True),((6,9),True),((7,0),True),((7,1),False),((7,2),False),((7,3),False),((7,4),False),((7,5),True),((7,6),True),((7,7),True),((7,8),True),((7,9),False),((8,0),True),((8,1),True),((8,2),True),((8,3),True),((8,4),True),((8,5),False),((8,6),True),((8,7),True),((8,8),True),((8,9),True),((9,0),False),((9,1),True),((9,2),True),((9,3),False),((9,4),True),((9,5),True),((9,6),True),((9,7),True),((9,8),False),((9,9),False)]
-
--- >>> Map.lookup (2,0) test1table
--- Just True
-test1store = listToStore test1list
--- >>> peek (0,0) test1store
--- False
--- >>> peek (2,0) test1store
--- True
-
--- Anything outside the grid is false
--- >>> peek (10000,0) test1store
--- False
-
 sumPair :: (Num a, Num b) => (a, b) -> (a, b) -> (a, b)
 sumPair (a,b) (c,d) = (a+c,b+d)
 
@@ -295,3 +255,72 @@ part2 xs =
         numRollsRemoved = numRollsAtStart - numRollsAtEnd 
     in numRollsRemoved
     --in trace ("\n" <> storeToString st') numRollsRemoved
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+test1String = "..@@.@@@@.\n@@@.@.@.@@\n@@@@@.@.@@\n@.@@@@..@.\n@@.@@@@.@@\n.@@@@@@@.@\n.@.@.@.@@@\n@.@@@.@@@@\n.@@@@@@@@.\n@.@.@@@.@.\n"
+
+test1parsed = parse parser "input" test1String
+
+-- >>> test1parsed
+-- Right [[False,False,True,True,False,True,True,True,True,False],[True,True,True,False,True,False,True,False,True,True],[True,True,True,True,True,False,True,False,True,True],[True,False,True,True,True,True,False,False,True,False],[True,True,False,True,True,True,True,False,True,True],[False,True,True,True,True,True,True,True,False,True],[False,True,False,True,False,True,False,True,True,True],[True,False,True,True,True,False,True,True,True,True],[False,True,True,True,True,True,True,True,True,False],[True,False,True,False,True,True,True,False,True,False]]
+
+test1list = case test1parsed of
+    Right xs -> xs
+    Left _ -> [[]]
+
+test1W = length $ head test1list
+test1H = length test1list
+
+-- >>> test1list    
+-- [[False,False,True,True,False,True,True,True,True,False],[True,True,True,False,True,False,True,False,True,True],[True,True,True,True,True,False,True,False,True,True],[True,False,True,True,True,True,False,False,True,False],[True,True,False,True,True,True,True,False,True,True],[False,True,True,True,True,True,True,True,False,True],[False,True,False,True,False,True,False,True,True,True],[True,False,True,True,True,False,True,True,True,True],[False,True,True,True,True,True,True,True,True,False],[True,False,True,False,True,True,True,False,True,False]]
+
+-- >>> T.pack (listToString test1list) == test1String
+-- True
+
+test1table = listToTable test1list
+
+-- >>> Map.toList test1table
+-- [((0,0),False),((0,1),True),((0,2),True),((0,3),True),((0,4),True),((0,5),False),((0,6),False),((0,7),True),((0,8),False),((0,9),True),((1,0),False),((1,1),True),((1,2),True),((1,3),False),((1,4),True),((1,5),True),((1,6),True),((1,7),False),((1,8),True),((1,9),False),((2,0),True),((2,1),True),((2,2),True),((2,3),True),((2,4),False),((2,5),True),((2,6),False),((2,7),True),((2,8),True),((2,9),True),((3,0),True),((3,1),False),((3,2),True),((3,3),True),((3,4),True),((3,5),True),((3,6),True),((3,7),True),((3,8),True),((3,9),False),((4,0),False),((4,1),True),((4,2),True),((4,3),True),((4,4),True),((4,5),True),((4,6),False),((4,7),True),((4,8),True),((4,9),True),((5,0),True),((5,1),False),((5,2),False),((5,3),True),((5,4),True),((5,5),True),((5,6),True),((5,7),False),((5,8),True),((5,9),True),((6,0),True),((6,1),True),((6,2),True),((6,3),False),((6,4),True),((6,5),True),((6,6),False),((6,7),True),((6,8),True),((6,9),True),((7,0),True),((7,1),False),((7,2),False),((7,3),False),((7,4),False),((7,5),True),((7,6),True),((7,7),True),((7,8),True),((7,9),False),((8,0),True),((8,1),True),((8,2),True),((8,3),True),((8,4),True),((8,5),False),((8,6),True),((8,7),True),((8,8),True),((8,9),True),((9,0),False),((9,1),True),((9,2),True),((9,3),False),((9,4),True),((9,5),True),((9,6),True),((9,7),True),((9,8),False),((9,9),False)]
+
+-- >>> Map.lookup (2,0) test1table
+-- Just True
+test1store = listToStore test1list
+-- >>> peek (0,0) test1store
+-- False
+-- >>> peek (2,0) test1store
+-- True
+
+-- Anything outside the grid is false
+-- >>> peek (10000,0) test1store
+-- False

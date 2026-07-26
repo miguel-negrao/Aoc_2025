@@ -12,8 +12,8 @@
 part1
 time: 1h10m
 attempts: 1  
-used chatgpt: yes, to investigate looping with megaparsec
-notes: my parsers were looping. Finally had to resort to chatgpt to suggest using sepEndBy. It's hard to write that function by hand.
+used chatgpt: yes, to investigate non-termination with megaparsec
+notes: my parsers were not terminating. Finally had to resort to chatgpt to suggest using sepEndBy. It's hard to write that function by hand.
 
 part2
 time: ~1h
@@ -74,7 +74,6 @@ data Homework = Homework [[Natural]] [(Operation,Int)] deriving (Show, Eq, Read)
 
 type ParsedType = Homework
 
-
 pNumber :: forall a. Read a => Parser a
 pNumber = read <$> some digitChar
 
@@ -84,7 +83,6 @@ pNumberLine = do
     numbers <- pNumber @Natural `sepEndBy` hspace1
     newline
     return numbers
-
 
 pOp :: Parser (Operation,Int)
 pOp = do
@@ -104,20 +102,11 @@ parser = do
     a <- some $ try pNumberLine
     Homework a <$> pOperationsLine
 
-tString :: Text
-tString = "123 328  51 64 \n 45 64  387 23 \n  6 98  215 314\n*   +   *   +  \n"
-
-tParsed = case parse parser "input" tString of
-    Right x -> x
-    Left _ -> error "not parsed"
-
--- >>> tParsed
--- Homework [[123,328,51,64],[45,64,387,23],[6,98,215,314]] [(Multiply,1),(Add,5),(Multiply,9),(Add,13)]
-
 doOperation :: (Foldable t, Num a) => t a -> (Operation, b) -> a
 doOperation xs (Add,_) = sum xs
 doOperation xs (Multiply,_) = product xs
 
+doSums :: (Integral a, Num b1, Foldable t) => [t a] -> [(Operation, b2)] -> b1
 doSums xs ops = fromIntegral $ sum $ zipWith doOperation xs ops
 
 part1 :: ParsedType -> Int
@@ -145,6 +134,28 @@ part2 input (Homework numbers ops) = let
     problems = splitNumbers (init $ lines (T.unpack input)) ops
     numberLists = fmap (fmap read . transpose) problems
     in  doSums numberLists ops
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -203,3 +214,14 @@ transposed
 
 -- >>> t3
 -- Prelude.read: no parse
+
+
+tString :: Text
+tString = "123 328  51 64 \n 45 64  387 23 \n  6 98  215 314\n*   +   *   +  \n"
+
+tParsed = case parse parser "input" tString of
+    Right x -> x
+    Left _ -> error "not parsed"
+
+-- >>> tParsed
+-- Homework [[123,328,51,64],[45,64,387,23],[6,98,215,314]] [(Multiply,1),(Add,5),(Multiply,9),(Add,13)]

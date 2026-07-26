@@ -225,18 +225,6 @@ findStableStateError maxInterations f s =
 countTrue :: TableStore Bool -> Int
 countTrue = length . concatMap (filter id) . storeToList
 
-genTestString = do
-    s <- readFile "test_input"
-    putStrLn $  "tString = " <> show s
-
-tString :: String
-tString = ".......S.......\n...............\n.......^.......\n...............\n......^.^......\n...............\n.....^.^.^.....\n...............\n....^.^...^....\n...............\n...^.^...^.^...\n...............\n..^...^.....^..\n...............\n.^.^.^.^.^...^.\n...............\n"
-
-tStore = listToStore $ stringToList tString
-
--- >>> storeToString $ head $ drop 4 $  loopTableStore rule tStore
--- ".......S.......\n.......|.......\n......|^|......\n......|.|......\n.....|^|^|.....\n...............\n.....^.^.^.....\n...............\n....^.^...^....\n...............\n...^.^...^.^...\n...............\n..^...^.....^..\n...............\n.^.^.^.^.^...^.\n...............\n"
-
 -- These functions are specific to the type of Table
 data TachionManifoldEntity = EmptySpace | Ray | Splitter | StartPosition deriving (Eq, Show, Read)
 
@@ -528,3 +516,37 @@ part2V2 xs =
             --in  trace ("start: " <> show start <> " width: " <> show lineWidth <> " length: " <> show l) $ part2V2' start lineWidth l xs
 
 part2 = part2V2
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+genTestString = do
+    s <- readFile "test_input"
+    putStrLn $  "tString = " <> show s
+
+tString :: String
+tString = ".......S.......\n...............\n.......^.......\n...............\n......^.^......\n...............\n.....^.^.^.....\n...............\n....^.^...^....\n...............\n...^.^...^.^...\n...............\n..^...^.....^..\n...............\n.^.^.^.^.^...^.\n...............\n"
+
+tStore = listToStore $ stringToList tString
+
+-- >>> storeToString $ head $ drop 4 $  loopTableStore rule tStore
+-- ".......S.......\n.......|.......\n......|^|......\n......|.|......\n.....|^|^|.....\n...............\n.....^.^.^.....\n...............\n....^.^...^....\n...............\n...^.^...^.^...\n...............\n..^...^.....^..\n...............\n.^.^.^.^.^...^.\n...............\n"
