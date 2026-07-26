@@ -1,26 +1,24 @@
 module Main (main) where
 
-import AoC
+import AoC (parser, part1v4, part2v2)
 import qualified Data.Text.IO as TIO
-import Test.Tasty.Bench (bench, defaultMain, nf, nfIO)
-import Text.Megaparsec (errorBundlePretty, parse)
+import Test.Tasty.Bench (bench, defaultMain, nfIO)
+import Text.Megaparsec (parse)
 
-
-parseAndRun f input = case parse parser "input" input of
-        Left err -> error "no parse"
-        Right parsed -> f parsed
-
-main :: IO ()
-main = do
+runPart1 = do
     input <- TIO.readFile "input"
     case parse parser "input" input of
-        Left err -> putStrLn (errorBundlePretty err)
-        Right parsed ->
-            defaultMain
-                [ --bench "part1 without parsing" $ nf part1 parsed
-                 bench "part1v4 SBV without parsing" $ nfIO $ part1v4 parsed
-                , bench "part2v2 SBV without parsing" $ nfIO $ part2v2 parsed
-                --, bench "part1 with parsing" $ nf (parseAndRun part1) input
-                , bench "part1 SBV with parsing" $ nfIO $ (parseAndRun part1v4) input
-                , bench "part2 SBV with parsing" $ nfIO $ (parseAndRun part2v2) input
-                ]
+        Left _ -> error "no parse"
+        Right parsed -> part1v4 parsed
+
+runPart2 = do
+    input <- TIO.readFile "input"
+    case parse parser "input" input of
+        Left _ -> error "no parse"
+        Right parsed -> part2v2 parsed
+
+main :: IO ()
+main = defaultMain
+    [ bench "part1" $ nfIO runPart1
+    , bench "part2" $ nfIO runPart2
+    ]
