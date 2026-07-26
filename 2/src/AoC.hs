@@ -1,8 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TypeFamilies #-}
 
-module Main (main) where
+module AoC
+    ( Parser
+    , parser
+    , part1
+    , part2
+    , ParsedType
+    ) where
 
 import Control.Error (Script, runScript, scriptIO, throwE, tryRead)
 import Data.List ( tails )
@@ -23,28 +30,6 @@ import GHC.Natural
 import Debug.Trace
 import qualified Data.Set as Set
 import qualified Data.Foldable as Set
-
-
-{--
-notes:
-part1
-start: 2025-12-06 ??
-end:   2025-12-06 ??
-time:  ??m
-used chatgpt: 
-
-part1
-start: 2025-12-06 ??
-end:   2025-12-07 ??
-time:  ??m
-used chatgpt:
-
-part1 attempts: 
-part2 attempts: 
-
-notes:
-
---}
 
 {--
 notes:
@@ -69,15 +54,20 @@ type Parser = Parsec Void Text
 pNumber :: forall a. Read a => Parser a
 pNumber = read <$> some digitChar
 
-pRange :: Parser (Natural, Natural)
+type family V2 a where
+    V2 a = (a,a)
+
+pRange :: Parser (V2 Natural)
 pRange = do
     x <- pNumber
     char '-'
     y <- pNumber
     return (x,y)
 
-pList :: Parser [(Natural, Natural)]
-pList = sepBy pRange (char ',')
+type ParsedType = [V2 Natural]
+
+parser :: Parser ParsedType
+parser = sepBy pRange (char ',')
 
 -- part 1
 
@@ -127,10 +117,10 @@ isInvalid2 n = l > 1 && isInvalid' where -- (isInvalid' && trace (show n) True) 
 part2 :: [(Natural, Natural)] -> Natural
 part2 = check isInvalid2
 
-main :: IO ()
-main = do
+test :: IO ()
+test = do
     testInput :: Text <- TIO.readFile "test_input"
-    case parse pList "file" testInput of
+    case parse parser "file" testInput of
         Right ranges -> do
             let
                 part1TestAnswer = 1227775554
@@ -146,7 +136,7 @@ main = do
             TIO.putStr txt
         Left e -> pPrint e
     input :: Text <- TIO.readFile "input"
-    case parse pList "file" input of
+    case parse parser "file" input of
         Right ranges -> do
             let
                 txt :: Text
