@@ -1,6 +1,6 @@
 module Main (main) where
 
-import AoC (parser, part1, part2)
+import AoC (parser, part1)
 import qualified Data.Text.IO as TIO
 import Test.Tasty.Bench (bench, defaultMain, nf)
 import Text.Megaparsec (errorBundlePretty, parse)
