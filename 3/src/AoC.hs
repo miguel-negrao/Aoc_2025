@@ -2,7 +2,13 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Main (main) where
+module AoC
+    ( Parser
+    , parser
+    , part1
+    , part2
+    , ParsedType
+    ) where
 
 import Control.Error (Script, runScript, scriptIO, throwE, tryRead)
 import qualified Data.List as List
@@ -54,8 +60,10 @@ pLine = do
     newline
     return digits
 
-pLines :: Parser [String]
-pLines = many pLine
+type ParsedType = [String] 
+
+parser :: Parser ParsedType
+parser = many pLine
 
 -- https://en.wikipedia.org/wiki/Subsequence
 
@@ -198,10 +206,10 @@ maxJoltage2v6 xs = final where
 part2 :: [String] -> Int
 part2 = sum . fmap (read . maxJoltage2v6)
 
-main :: IO ()
-main = do
+test :: IO ()
+test = do
     testInput :: Text <- TIO.readFile "test_input"
-    case parse pLines "file" testInput of
+    case parse parser "file" testInput of
         Right parsed -> do
             let
                 part1CorrectAnswer = 357
@@ -219,7 +227,7 @@ main = do
             TIO.putStr txt
         Left e -> pPrint e
     input :: Text <- TIO.readFile "input"
-    case parse pLines "file" input of
+    case parse parser "file" input of
         Right parsed -> do
             let
                 txt :: Text
