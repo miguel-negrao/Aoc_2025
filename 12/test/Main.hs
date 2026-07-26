@@ -23,4 +23,9 @@ main = defaultMain $ testGroup "AoC5"
         case parse parser "test_input" input of
             Left err -> assertFailure (show err)
             Right parsed -> assertEqual "part1" 2 (part1 parsed)
+    , testCase "part1 final" $ do
+        input <- TIO.readFile "input"
+        case parse parser "input" input of
+            Left err -> assertFailure (show err)
+            Right parsed -> assertEqual "part1" 454 (part1 parsed)
     ]

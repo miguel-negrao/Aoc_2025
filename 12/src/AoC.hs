@@ -18,7 +18,7 @@ part1
 time: 
 attempts:
 used chatgpt: yes.
-- to get some help on pinpointing the memory leak. Asked for very generic analysis of my approach, essentially if it could in theory work or not. It wasn't very clear what the answer was, I think it was, perhaphs with some changes. 
+- to get some help on pinpointing the memory leak. Asked for very generic analysis of my approach, essentially if it could in theory work or not. It wasn't very clear what the answer was, I think it was, "perhaphs with some changes." 
 - She suggests moving to bit as Integer. My input max seems to be 50x50 that is 2500 bits, will use Integer. 
 - She detected an error with my rotation, fixed that. 
 - Suggested speedup by checking impossibility in number of live cells vs total cells of the grid.
@@ -28,12 +28,6 @@ part1 without parsing: OK
     28.067 s ± 2.23 s
 part1 with parsing:    OK
     29.365 s ± 5.4 ms
-
-part2
-time:
-attempts:
-used chatgpt: no
-notes:
 
 --}
 
