@@ -226,7 +226,7 @@ part2Vector :: ParsedType -> Int
 part2Vector xs = dft2_2 svr' dac' fft' g where
   (g, svr', dac', fft') = convertGraphVector xs
 
-part2 = part2Vector
+part2 = part2IntMap
 
 
 

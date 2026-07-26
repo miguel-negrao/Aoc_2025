@@ -1,6 +1,6 @@
 module Main (main) where
 
-import AoC (parser, part1, part2IntMap)
+import AoC (parser, part1, part2)
 import qualified Data.Text.IO as TIO
 import Test.Tasty.Bench (bench, defaultMain, nfIO)
 import Text.Megaparsec (parse)
@@ -14,5 +14,5 @@ runPart f = do
 main :: IO ()
 main = defaultMain
     [ bench "part1" $ nfIO (runPart part1)
-    , bench "part2" $ nfIO (runPart part2IntMap)
+    , bench "part2" $ nfIO (runPart part2)
     ]
